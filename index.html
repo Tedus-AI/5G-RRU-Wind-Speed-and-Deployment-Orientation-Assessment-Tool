@@ -326,8 +326,12 @@
   .stat-foot {
     font-size: 11px;
     color: var(--text-secondary);
-    margin-top: 6px;
+    margin-top: 8px;
+    line-height: 1.55;
   }
+  /* Ensure all stats in a row reach equal height so multi-line footers line up */
+  .grid-6 .stat, .grid-3 .stat, .grid-2 .stat { display: flex; flex-direction: column; }
+  .grid-6 .stat .stat-foot, .grid-3 .stat .stat-foot { margin-top: auto; padding-top: 8px; }
   .stat-accent .stat-value { color: var(--accent); }
   .stat-warn   .stat-value { color: var(--warn); }
   .stat-error  .stat-value { color: var(--error); }
@@ -769,7 +773,7 @@
       <div>
         <div class="stat-label" style="margin-bottom:8px;" data-i18n="chart.temp">AMBIENT TEMPERATURE HISTOGRAM</div>
         <div class="chart-wrap"><canvas id="temp-chart"></canvas></div>
-        <p class="help" data-i18n="chart.temp.help">紅色虛線為傳統散熱設計常用的 55 °C 假設。柱狀圖顯示實際當地一年中各溫度區間的小時數。</p>
+        <p class="help" data-i18n="chart.temp.help">基於近 5 年（約 43,800 筆）的逐時氣溫資料所建立的溫度分佈；Y 軸已標準化為「平均每年的小時數」（= 5 年總和 ÷ 5）。紅色虛線為傳統散熱設計常用的 55 °C 假設，可直接比對本站點實際分佈與設計包絡的差距。</p>
       </div>
       <div>
         <div class="stat-label" style="margin-bottom:8px;" data-i18n="chart.wind">WIND ROSE (10 m HEIGHT)</div>
@@ -1027,7 +1031,7 @@ const I18N = {
     'summary.title': '氣候摘要 (近 5 年)',
     'charts.title': '氣候分佈分析',
     'chart.temp': '環境溫度直方圖',
-    'chart.temp.help': '紅色虛線為傳統散熱設計常用的 55 °C 假設。柱狀圖顯示實際當地一年中各溫度區間的小時數。',
+    'chart.temp.help': '基於近 5 年（約 43,800 筆）的逐時氣溫資料所建立的溫度分佈；Y 軸已標準化為「平均每年的小時數」（= 5 年總和 ÷ 5）。紅色虛線為傳統散熱設計常用的 55 °C 假設，可直接比對本站點實際分佈與設計包絡的差距。',
     'chart.wind': '風玫瑰圖 (10 m 高度)',
     'rec.title': '工程建議',
     'rec.empty': '執行分析以查看建議',
@@ -1082,7 +1086,7 @@ const I18N = {
     'summary.title': 'Climate Summary (5-yr History)',
     'charts.title': 'Climate Distribution Analysis',
     'chart.temp': 'AMBIENT TEMPERATURE HISTOGRAM',
-    'chart.temp.help': 'Red dashed line is the 55 °C assumption used in traditional thermal design. Bars show actual hours per year in each temperature bin.',
+    'chart.temp.help': 'Built from 5 years of hourly temperature data (~43,800 samples). The Y-axis is normalized to "average hours per year" (= 5-year total ÷ 5). The red dashed line is the 55 °C assumption used in traditional thermal design — compare this site\'s actual distribution against the design envelope.',
     'chart.wind': 'WIND ROSE (10 m HEIGHT)',
     'rec.title': 'Engineering Recommendations',
     'rec.empty': 'Run analysis to see recommendations',
@@ -1159,13 +1163,64 @@ async function geocodeAddress(query) {
   if (m) {
     return { lat: parseFloat(m[1]), lon: parseFloat(m[2]), name: `${m[1]}, ${m[2]}` };
   }
-  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=${state.lang}&format=json`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Geocoding failed: HTTP ' + res.status);
-  const j = await res.json();
-  if (!j.results || j.results.length === 0) throw new Error('No location found for: ' + query);
-  const r = j.results[0];
-  return { lat: r.latitude, lon: r.longitude, name: r.name + (r.admin1 ? ', ' + r.admin1 : '') + (r.country ? ', ' + r.country : '') };
+
+  // PRIMARY: Nominatim (OpenStreetMap) — handles full street addresses worldwide.
+  // Example: "台北市內湖區成功路四段206號" → street-level lat/lon.
+  // Usage policy: https://operations.osmfoundation.org/policies/nominatim/
+  //   - max 1 req/s (this tool is low-volume single-user, acceptable)
+  //   - User-Agent is set automatically by browser
+  //   - requires an acknowledgement in the UI (we include "© OpenStreetMap" in map attrib)
+  try {
+    const nomUrl = `https://nominatim.openstreetmap.org/search?` +
+      `q=${encodeURIComponent(query)}&format=json&limit=1&addressdetails=1&` +
+      `accept-language=${state.lang === 'zh' ? 'zh-TW,zh,en' : 'en'}`;
+    const res = await fetch(nomUrl, { headers: { 'Accept': 'application/json' } });
+    if (res.ok) {
+      const arr = await res.json();
+      if (Array.isArray(arr) && arr.length > 0) {
+        const r = arr[0];
+        // Build a nice display name — prefer the street-level components
+        const a = r.address || {};
+        const parts = [];
+        if (a.house_number && a.road) parts.push(a.road + ' ' + a.house_number);
+        else if (a.road) parts.push(a.road);
+        if (a.suburb || a.city_district || a.district) parts.push(a.suburb || a.city_district || a.district);
+        if (a.city || a.town || a.village || a.county) parts.push(a.city || a.town || a.village || a.county);
+        if (a.country) parts.push(a.country);
+        const name = parts.length ? parts.join(', ') : (r.display_name || query);
+        return {
+          lat: parseFloat(r.lat),
+          lon: parseFloat(r.lon),
+          name,
+          source: 'Nominatim (OSM)'
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('Nominatim geocoding failed, falling back:', e);
+  }
+
+  // FALLBACK: Open-Meteo geocoding — city/place-level gazetteer, no street addresses.
+  try {
+    const omUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=${state.lang}&format=json`;
+    const res = await fetch(omUrl);
+    if (res.ok) {
+      const j = await res.json();
+      if (j.results && j.results.length > 0) {
+        const r = j.results[0];
+        return {
+          lat: r.latitude,
+          lon: r.longitude,
+          name: r.name + (r.admin1 ? ', ' + r.admin1 : '') + (r.country ? ', ' + r.country : ''),
+          source: 'Open-Meteo Geocoding'
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('Open-Meteo geocoding failed:', e);
+  }
+
+  throw new Error('No location found for: ' + query);
 }
 
 const CLIMATE_CACHE_PREFIX = 'rru-climate-v1-';
@@ -1489,26 +1544,27 @@ function renderSummaryCards(a) {
   const ts = a.tStats;
   const zh = state.lang === 'zh';
   const yrs = ts.yearsCovered.toFixed(1);
+  const sampleN = ts.count;
   grid.innerHTML = `
     <div class="stat">
-      <div class="stat-label">${zh ? '年均溫（5 年平均）' : 'Annual Mean (5-yr avg)'}</div>
+      <div class="stat-label">${zh ? '年均溫' : 'Annual Mean'}</div>
       <div class="stat-value num">${fmt(ts.mean)}<span class="unit">°C</span></div>
-      <div class="stat-foot">${zh ? '中位數' : 'Median'} P50: ${fmt(ts.p50)}°C</div>
+      <div class="stat-foot">${zh ? `近 5 年逐時平均 · n=${sampleN.toLocaleString()}` : `5-yr hourly mean · n=${sampleN.toLocaleString()}`}<br>P50: ${fmt(ts.p50)}°C</div>
     </div>
     <div class="stat stat-accent">
-      <div class="stat-label">P95 ${zh ? '溫度' : 'Temp'}</div>
+      <div class="stat-label">${zh ? 'P95 溫度' : 'P95 Temp'}</div>
       <div class="stat-value num">${fmt(ts.p95)}<span class="unit">°C</span></div>
-      <div class="stat-foot">${zh ? '全年 5% 時間超過此值' : '5 % of hours exceed this'}</div>
+      <div class="stat-foot">${zh ? `近 5 年中 5% 的小時超過此值<br>（= ${Math.round(sampleN * 0.05).toLocaleString()} 小時）` : `5 % of the 5-yr hours exceed this<br>(≈ ${Math.round(sampleN * 0.05).toLocaleString()} hours)`}</div>
     </div>
     <div class="stat ${ts.max > 50 ? 'stat-warn' : ''}">
       <div class="stat-label">${zh ? '歷史極端' : 'Historical Max'}</div>
       <div class="stat-value num">${fmt(ts.max)}<span class="unit">°C</span></div>
-      <div class="stat-foot">${zh ? `vs 設計基準 55°C（餘裕 ${(55 - ts.max).toFixed(1)} K）` : `vs 55°C design (margin ${(55 - ts.max).toFixed(1)} K)`}</div>
+      <div class="stat-foot">${zh ? `近 5 年逐時最大值<br>vs 設計基準 55°C（餘裕 ${(55 - ts.max).toFixed(1)} K）` : `5-yr hourly max<br>vs 55°C design (margin ${(55 - ts.max).toFixed(1)} K)`}</div>
     </div>
     <div class="stat">
       <div class="stat-label">${zh ? '10 m 平均風速' : 'Mean Wind @10 m'}</div>
       <div class="stat-value num">${fmt(a.v10mean)}<span class="unit">m/s</span></div>
-      <div class="stat-foot" title="${zh ? '風速 < 0.5 m/s 視為靜風並排除，避免拉低有效風速平均' : 'Wind speeds below 0.5 m/s are treated as calm and excluded'}">${zh ? '排除靜風 (<0.5 m/s)' : 'excl. calm (<0.5 m/s)'}</div>
+      <div class="stat-foot" title="${zh ? '風速 < 0.5 m/s 視為靜風並排除，避免拉低有效風速平均' : 'Wind speeds below 0.5 m/s are treated as calm and excluded'}">${zh ? `近 5 年逐時算術平均<br>排除靜風 (<0.5 m/s)` : `5-yr hourly arithmetic mean<br>excl. calm (<0.5 m/s)`}</div>
     </div>
     <div class="stat stat-accent">
       <div class="stat-label">${zh ? '修正風速' : 'Corrected Wind'} @${state.params.height}m</div>
@@ -1518,7 +1574,7 @@ function renderSummaryCards(a) {
     <div class="stat ${ts.hoursAbove[55] > 0 ? 'stat-error' : 'stat-accent'}">
       <div class="stat-label">${zh ? '> 55°C 時數（年均）' : 'Hours/yr > 55°C'}</div>
       <div class="stat-value num">${(ts.hoursAbove[55] / ts.yearsCovered).toFixed(0)}</div>
-      <div class="stat-foot">> 50°C: ${(ts.hoursAbove[50] / ts.yearsCovered).toFixed(0)} h</div>
+      <div class="stat-foot">${zh ? `5 年總計 ${ts.hoursAbove[55]} h ÷ ${yrs} 年` : `5-yr total ${ts.hoursAbove[55]} h ÷ ${yrs} yr`}<br>> 50°C: ${(ts.hoursAbove[50] / ts.yearsCovered).toFixed(0)} h/yr</div>
     </div>
   `;
   // Calculation flow caption below the grid
@@ -1765,16 +1821,38 @@ function renderWindRose(a) {
   svg.appendChild(defs);
   svg.appendChild(arrow);
 
-  // Center label
-  const center = document.createElementNS(NS, 'text');
-  center.setAttribute('x', cx);
-  center.setAttribute('y', cy + 4);
-  center.setAttribute('text-anchor', 'middle');
-  center.setAttribute('fill', '#5e6a82');
-  center.setAttribute('font-family', 'IBM Plex Mono, monospace');
-  center.setAttribute('font-size', '10');
-  center.textContent = `${(rose.calmFreq * 100).toFixed(0)}% calm`;
-  svg.appendChild(center);
+  // Center label — calm percentage. Prominent so users notice static-wind fraction.
+  const calmBg = document.createElementNS(NS, 'circle');
+  calmBg.setAttribute('cx', cx); calmBg.setAttribute('cy', cy);
+  calmBg.setAttribute('r', 26);
+  calmBg.setAttribute('fill', '#0a0e14');
+  calmBg.setAttribute('stroke', '#4fd4e6');
+  calmBg.setAttribute('stroke-width', '1.5');
+  calmBg.setAttribute('stroke-dasharray', '2 3');
+  calmBg.setAttribute('opacity', '0.9');
+  svg.appendChild(calmBg);
+
+  const calmPct = document.createElementNS(NS, 'text');
+  calmPct.setAttribute('x', cx);
+  calmPct.setAttribute('y', cy - 2);
+  calmPct.setAttribute('text-anchor', 'middle');
+  calmPct.setAttribute('fill', '#4fd4e6');
+  calmPct.setAttribute('font-family', 'IBM Plex Mono, monospace');
+  calmPct.setAttribute('font-size', '16');
+  calmPct.setAttribute('font-weight', '600');
+  calmPct.textContent = `${(rose.calmFreq * 100).toFixed(0)}%`;
+  svg.appendChild(calmPct);
+
+  const calmLabel = document.createElementNS(NS, 'text');
+  calmLabel.setAttribute('x', cx);
+  calmLabel.setAttribute('y', cy + 12);
+  calmLabel.setAttribute('text-anchor', 'middle');
+  calmLabel.setAttribute('fill', '#a8b4ca');
+  calmLabel.setAttribute('font-family', 'IBM Plex Sans, sans-serif');
+  calmLabel.setAttribute('font-size', '9');
+  calmLabel.setAttribute('letter-spacing', '0.5');
+  calmLabel.textContent = state.lang === 'zh' ? '靜風時段' : 'CALM';
+  svg.appendChild(calmLabel);
 
   // Legend
   SPEED_BINS.forEach(b => {
@@ -1782,6 +1860,15 @@ function renderWindRose(a) {
     item.innerHTML = `<span class="swatch" style="background:${b.color}"></span>${b.label}`;
     legend.appendChild(item);
   });
+
+  // Caption below legend explaining what calm means
+  const caption = document.createElement('div');
+  caption.className = 'windrose-caption';
+  caption.style.cssText = 'margin-top:10px;font-size:11px;color:var(--text-secondary);text-align:center;line-height:1.5;max-width:360px;';
+  caption.innerHTML = state.lang === 'zh'
+    ? `中心 <span class="mono" style="color:var(--accent);font-weight:600;">${(rose.calmFreq * 100).toFixed(0)}%</span> 表示：最熱 3 個月日間 10 m 風速 &lt; 0.5 m/s 的小時比例（視為靜風，無明確風向）。<br>放射狀扇區長度 = 該方位頻率 × 顏色堆疊 = 風速等級分布。`
+    : `Center <span class="mono" style="color:var(--accent);font-weight:600;">${(rose.calmFreq * 100).toFixed(0)}%</span> = fraction of hot-season daytime hours with 10 m wind &lt; 0.5 m/s (calm, no clear direction).<br>Radial sector length = frequency in that direction; stacked colors = speed bins.`;
+  legend.parentNode.appendChild(caption);
 }
 
 function renderCompass(a) {
@@ -1952,7 +2039,22 @@ function renderRecList(a) {
       </div>
     </li>
   `;
-  $('#rec-badge').textContent = r.alignmentQuality > 0.7 ? 'GOOD' : r.alignmentQuality > 0.4 ? 'MODERATE' : 'POOR';
+  // Alignment quality badge: measures how well the sector-constrained unit azimuth
+  // can align with the prevailing wind axis. 100% = fins perfectly parallel to wind;
+  // 0% = fins 45° off-axis (worst case within the ±45° sector constraint window).
+  const q = r.alignmentQuality;
+  const badge = $('#rec-badge');
+  let label, color;
+  if (q > 0.7) { label = state.lang === 'zh' ? '佳 GOOD' : 'GOOD';       color = 'var(--success)'; }
+  else if (q > 0.4) { label = state.lang === 'zh' ? '普通 MODERATE' : 'MODERATE'; color = 'var(--warn)'; }
+  else { label = state.lang === 'zh' ? '差 POOR' : 'POOR';               color = 'var(--error)'; }
+  badge.innerHTML = `${label} · ${(q*100).toFixed(0)}% <span style="opacity:0.6;font-size:10px;">ⓘ</span>`;
+  badge.style.cursor = 'help';
+  badge.style.color = color;
+  badge.style.borderColor = color;
+  badge.title = state.lang === 'zh'
+    ? `鰭片方向對齊度 = ${(q*100).toFixed(0)}%（與風軸夾角 ${r.bestDiff.toFixed(0)}°）\n\n評級標準：\n  佳 GOOD    : 對齊度 > 70%（夾角 < 13.5°）\n  普通 MODER : 對齊度 40–70%（夾角 13.5–27°）\n  差 POOR    : 對齊度 < 40%（夾角 > 27°）\n\n這不是「散熱差」，是「風向對鰭片方向不理想」。在 POOR 情況下建議純用自然對流設計。`
+    : `Fin-to-wind alignment = ${(q*100).toFixed(0)}% (angle ${r.bestDiff.toFixed(0)}° off wind axis)\n\nGrading:\n  GOOD     : alignment > 70% (< 13.5° off)\n  MODERATE : 40–70% (13.5–27° off)\n  POOR     : < 40% (> 27° off)\n\nThis means "fin direction vs wind is suboptimal", NOT that the cooling design is bad. In POOR cases, design for natural convection only.`;
 
   // Alerts
   let alertsHtml = '';
