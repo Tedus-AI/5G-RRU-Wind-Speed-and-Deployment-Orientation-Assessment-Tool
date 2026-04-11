@@ -1,0 +1,29 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Optional / build artifacts (this project has no build, but in case future)
+node_modules/
+dist/
+build/
+.cache/
+
+# Local development
+.env
+.env.local
+
+# Original Stitch mockup zip (kept for reference, but exclude from deploy)
+stitch_5g_rru_heat_dissipation_tool.zip
+MARKDOWN.txt

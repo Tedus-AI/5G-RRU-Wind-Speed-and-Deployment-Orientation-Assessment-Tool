@@ -1,0 +1,2350 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="5G RRU 戶外基站佈建方向評估工具：用真實當地氣候資料優化散熱設計，避免 over-design。" />
+<title>5G RRU Site Thermal Advisor — 戶外基站散熱與佈建方位評估</title>
+
+<!-- Fonts: IBM Plex (engineering feel, not AI-slop Inter) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet" />
+
+<!-- Leaflet (real interactive map) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<!-- Chart.js (temperature histogram) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<!-- jsPDF + html2canvas (PDF export) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<!-- QRCode.js (field handoff) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<style>
+  /* ===== Design Tokens =====
+     Engineering dark theme. No backdrop-blur. No meaningless gradients.
+     Subtle borders ARE allowed because engineers expect data regions to be
+     clearly demarcated. Cyan accent retained from Stitch but desaturated.
+  */
+  :root {
+    --bg-base:        #0a0e14;
+    --bg-surface-1:   #11161f;
+    --bg-surface-2:   #161c28;
+    --bg-surface-3:   #1c2333;
+    --bg-elevated:    #1f2738;
+
+    --border-low:     #232c3d;
+    --border-mid:     #2e394e;
+    --border-high:    #3a4660;
+
+    --text-primary:   #e6edf7;
+    --text-secondary: #94a1b8;
+    --text-tertiary:  #5e6a82;
+    --text-disabled:  #3f4960;
+
+    --accent:         #4fd4e6;
+    --accent-dim:     #2b8a99;
+    --accent-fade:    #4fd4e620;
+
+    --warn:           #f5b250;
+    --warn-fade:      #f5b25020;
+    --error:          #ef5a6f;
+    --error-fade:     #ef5a6f20;
+    --success:        #4caf80;
+    --success-fade:   #4caf8020;
+
+    --font-sans: 'IBM Plex Sans', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+
+    --r-sm: 4px;
+    --r-md: 6px;
+    --r-lg: 10px;
+    --r-xl: 14px;
+
+    --shadow-md: 0 2px 8px rgba(0,0,0,0.4);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Mono font for numbers/coordinates - very engineering */
+  .mono { font-family: var(--font-mono); font-feature-settings: 'tnum' 1; }
+  .num  { font-family: var(--font-mono); font-feature-settings: 'tnum' 1; font-weight: 500; }
+
+  /* ===== Top App Bar ===== */
+  #topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    height: 56px;
+    background: var(--bg-surface-1);
+    border-bottom: 1px solid var(--border-low);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 24px;
+  }
+  #topbar .brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 600; font-size: 15px;
+    color: var(--text-primary);
+  }
+  #topbar .brand-mark {
+    width: 28px; height: 28px;
+    border-radius: var(--r-sm);
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
+    display: flex; align-items: center; justify-content: center;
+    color: #08161a; font-weight: 700; font-size: 13px;
+    font-family: var(--font-mono);
+  }
+  #topbar .brand-sub {
+    font-size: 11px; color: var(--text-tertiary); font-weight: 400;
+    border-left: 1px solid var(--border-mid); padding-left: 10px;
+  }
+  #topbar .spacer { flex: 1; }
+
+  .seg-control {
+    display: inline-flex;
+    background: var(--bg-base);
+    border: 1px solid var(--border-low);
+    border-radius: var(--r-md);
+    padding: 2px;
+  }
+  .seg-control button {
+    background: transparent; border: none;
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-size: 12px; font-weight: 500;
+    padding: 6px 12px;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .seg-control button:hover { color: var(--text-primary); }
+  .seg-control button.active {
+    background: var(--bg-surface-3);
+    color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--border-mid);
+  }
+
+  #topbar .gh-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 12px;
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 10px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border-low);
+    transition: all 0.15s;
+  }
+  #topbar .gh-link:hover { color: var(--text-primary); border-color: var(--border-mid); }
+
+  /* ===== Layout ===== */
+  main {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 24px 20px 80px;
+  }
+
+  /* ===== Panel: the basic content container ===== */
+  .panel {
+    background: var(--bg-surface-1);
+    border: 1px solid var(--border-low);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: -4px 0 16px 0;
+  }
+  .panel-head .title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-head .title::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 2px;
+    background: var(--accent);
+    border-radius: 1px;
+  }
+  .panel-head .badge {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    padding: 3px 8px;
+    border: 1px solid var(--border-low);
+    border-radius: var(--r-sm);
+    font-family: var(--font-mono);
+  }
+
+  /* Grid system */
+  .grid { display: grid; gap: 20px; }
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+  .grid-6 { grid-template-columns: repeat(6, 1fr); }
+  .grid-asym { grid-template-columns: 1fr 2fr; }
+  .grid-asym-r { grid-template-columns: 2fr 1fr; }
+
+  @media (max-width: 1100px) {
+    .grid-2, .grid-3, .grid-4, .grid-asym, .grid-asym-r { grid-template-columns: 1fr; }
+    .grid-6 { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ===== Form controls ===== */
+  label {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+  input[type="text"], input[type="number"], select, textarea {
+    width: 100%;
+    background: var(--bg-base);
+    border: 1px solid var(--border-low);
+    border-radius: var(--r-md);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    padding: 9px 12px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  input[type="text"]:focus, input[type="number"]:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--bg-surface-2);
+  }
+  input[type="number"] { font-family: var(--font-mono); }
+  select {
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%2394a1b8' stroke-width='1.5'><path d='M3 4.5L6 7.5L9 4.5'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border: 1px solid var(--border-mid);
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 13px; font-weight: 500;
+    padding: 9px 16px;
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--border-high); background: var(--bg-surface-3); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #08161a;
+    font-weight: 600;
+  }
+  .btn-primary:hover { background: #6ce0f0; border-color: #6ce0f0; }
+  .btn-primary:disabled { background: var(--accent-dim); border-color: var(--accent-dim); }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border-low);
+  }
+  .btn-sm { font-size: 11px; padding: 6px 10px; }
+  .btn-warn { border-color: var(--warn); color: var(--warn); background: var(--warn-fade); }
+  .btn-warn:hover { background: var(--warn-fade); border-color: var(--warn); }
+
+  /* Toggle (segmented look) for site-presets */
+  .preset-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .preset-chip {
+    background: transparent;
+    border: 1px solid var(--border-low);
+    color: var(--text-secondary);
+    padding: 5px 11px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .preset-chip:hover { color: var(--accent); border-color: var(--accent-dim); }
+
+  /* ===== Stat cards ===== */
+  .stat {
+    background: var(--bg-surface-2);
+    border: 1px solid var(--border-low);
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+  }
+  .stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .stat-value {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.1;
+  }
+  .stat-value .unit {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    font-weight: 400;
+    margin-left: 4px;
+  }
+  .stat-foot {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+  }
+  .stat-accent .stat-value { color: var(--accent); }
+  .stat-warn   .stat-value { color: var(--warn); }
+  .stat-error  .stat-value { color: var(--error); }
+
+  /* Map */
+  #map {
+    width: 100%; height: 360px;
+    border-radius: var(--r-md);
+    background: var(--bg-base);
+    border: 1px solid var(--border-low);
+  }
+  .leaflet-container { background: #0a0e14 !important; font-family: var(--font-sans); }
+
+  /* ===== Compass SVG ===== */
+  .compass-wrap {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px;
+  }
+  .compass-svg { width: 240px; height: 240px; }
+
+  /* Wind rose */
+  .windrose-wrap { display: flex; flex-direction: column; align-items: center; }
+  .windrose-svg { width: 100%; max-width: 360px; height: auto; }
+  .windrose-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; font-size: 11px; color: var(--text-secondary); }
+  .windrose-legend .swatch { display: inline-block; width: 12px; height: 8px; vertical-align: middle; margin-right: 4px; border-radius: 1px; }
+
+  /* Recommendation list */
+  .rec-list { list-style: none; padding: 0; margin: 0; }
+  .rec-list li {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border-low);
+    display: flex; gap: 14px; align-items: flex-start;
+  }
+  .rec-list li:last-child { border-bottom: none; }
+  .rec-list .rec-icon {
+    flex-shrink: 0;
+    width: 32px; height: 32px;
+    border-radius: var(--r-sm);
+    background: var(--bg-surface-3);
+    border: 1px solid var(--border-mid);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .rec-list .rec-body { flex: 1; }
+  .rec-list .rec-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    font-weight: 600;
+  }
+  .rec-list .rec-value {
+    font-size: 16px; font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 2px;
+  }
+  .rec-list .rec-note {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+
+  /* Alert blocks */
+  .alert {
+    border-radius: var(--r-md);
+    padding: 12px 14px;
+    border: 1px solid;
+    display: flex; gap: 12px;
+    font-size: 12px;
+    margin: 10px 0;
+  }
+  .alert-warn  { background: var(--warn-fade);  border-color: var(--warn);  color: var(--warn); }
+  .alert-error { background: var(--error-fade); border-color: var(--error); color: var(--error); }
+  .alert-info  { background: var(--accent-fade);border-color: var(--accent-dim); color: var(--accent); }
+  .alert-success { background: var(--success-fade); border-color: var(--success); color: var(--success); }
+  .alert .icon { font-weight: 700; flex-shrink: 0; }
+  .alert .msg { color: var(--text-primary); }
+
+  /* Toast container */
+  #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+  .toast {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-mid);
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    border-radius: var(--r-md);
+    font-size: 13px;
+    box-shadow: var(--shadow-lg);
+    min-width: 280px; max-width: 400px;
+    animation: toast-in 0.25s ease-out;
+  }
+  .toast.error { border-left-color: var(--error); }
+  .toast.success { border-left-color: var(--success); }
+  @keyframes toast-in { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* Loading overlay */
+  #loading-overlay {
+    position: fixed; inset: 0;
+    background: rgba(10,14,20,0.85);
+    z-index: 150;
+    display: none;
+    align-items: center; justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+  #loading-overlay.show { display: flex; }
+  #loading-overlay .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border-low);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading-overlay .label {
+    color: var(--text-secondary); font-size: 13px;
+    font-family: var(--font-mono);
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-tertiary);
+    font-size: 13px;
+  }
+  .empty-state .icon {
+    font-size: 32px; margin-bottom: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-disabled);
+  }
+
+  /* Multi-site table */
+  table.sites-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .sites-table th, .sites-table td {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border-low);
+  }
+  .sites-table th {
+    color: var(--text-tertiary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+  }
+  .sites-table td.num { text-align: right; }
+  .sites-table tr:hover td { background: var(--bg-surface-2); }
+
+  /* Methodology disclosure */
+  details {
+    border: 1px solid var(--border-low);
+    border-radius: var(--r-md);
+    padding: 0;
+    background: var(--bg-surface-1);
+  }
+  details summary {
+    cursor: pointer;
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    list-style: none;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::after {
+    content: '+';
+    float: right; color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    transition: transform 0.2s;
+  }
+  details[open] summary::after { content: '−'; }
+  details .detail-body { padding: 0 16px 16px 16px; font-size: 12px; color: var(--text-secondary); line-height: 1.7; }
+  details .detail-body code { background: var(--bg-base); padding: 2px 6px; border-radius: 3px; color: var(--accent); font-size: 11px; }
+  details .detail-body table { width: 100%; margin: 8px 0; font-size: 11px; }
+  details .detail-body table td { padding: 4px 8px; border-bottom: 1px solid var(--border-low); }
+
+  /* Role visibility */
+  body[data-role="customer"] .engineer-only { display: none !important; }
+  body[data-role="customer"] .field-only    { display: none !important; }
+  body[data-role="field"]    .engineer-only { display: none !important; }
+  body[data-role="field"]    .customer-only { display: none !important; }
+  body[data-role="engineer"] .field-only    { display: none !important; }
+  body[data-role="engineer"] .customer-only { display: none !important; }
+
+  /* Field role specific layout */
+  body[data-role="field"] main { max-width: 640px; padding: 16px; }
+  body[data-role="field"] .panel { padding: 16px; }
+  body[data-role="field"] .compass-svg { width: 280px; height: 280px; }
+
+  /* Chart container */
+  .chart-wrap { position: relative; height: 280px; }
+  .chart-wrap.tall { height: 320px; }
+
+  /* Helper text */
+  .help { font-size: 11px; color: var(--text-tertiary); margin-top: 4px; line-height: 1.5; }
+
+  /* Print styles for PDF export fallback */
+  @media print {
+    #topbar, #toast-container, #loading-overlay, .no-print { display: none !important; }
+    body { background: white; color: black; }
+    .panel { border: 1px solid #ccc; background: white; page-break-inside: avoid; }
+  }
+
+  /* Map controls in dark mode */
+  .leaflet-bar a {
+    background: var(--bg-surface-2) !important;
+    color: var(--text-primary) !important;
+    border-bottom: 1px solid var(--border-low) !important;
+  }
+  .leaflet-bar a:hover { background: var(--bg-surface-3) !important; }
+  .leaflet-control-attribution {
+    background: rgba(10,14,20,0.7) !important;
+    color: var(--text-tertiary) !important;
+    font-size: 9px !important;
+  }
+  .leaflet-control-attribution a { color: var(--text-secondary) !important; }
+
+  /* Site marker pulse animation */
+  .site-marker {
+    width: 14px; height: 14px;
+    background: var(--accent);
+    border: 2px solid #08161a;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(79,212,230,0.6);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(79,212,230,0.6); }
+    70%  { box-shadow: 0 0 0 14px rgba(79,212,230,0); }
+    100% { box-shadow: 0 0 0 0 rgba(79,212,230,0); }
+  }
+
+  /* QR */
+  #qr-container { display: flex; justify-content: center; padding: 16px; background: white; border-radius: var(--r-md); }
+
+  /* Tooltip helper */
+  [data-tooltip] { position: relative; cursor: help; border-bottom: 1px dashed var(--border-mid); }
+  [data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute; bottom: 100%; left: 0;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-mid);
+    padding: 6px 10px;
+    border-radius: var(--r-sm);
+    font-size: 11px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    z-index: 50;
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Footer */
+  footer.app-foot {
+    text-align: center;
+    padding: 32px 20px;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    border-top: 1px solid var(--border-low);
+    margin-top: 32px;
+  }
+  footer.app-foot a { color: var(--text-secondary); text-decoration: none; }
+  footer.app-foot a:hover { color: var(--accent); }
+</style>
+</head>
+
+<body data-role="engineer">
+
+<!-- ===== TOP BAR ===== -->
+<header id="topbar">
+  <div class="brand">
+    <div class="brand-mark">RRU</div>
+    <div>
+      <div data-i18n="brand.title">5G RRU Site Thermal Advisor</div>
+    </div>
+    <div class="brand-sub mono" data-i18n="brand.sub">v1.0 · Engineering Edition</div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <!-- Role switcher -->
+  <div class="seg-control" id="role-switch">
+    <button data-role="engineer" class="active" data-i18n="role.engineer">熱流工程師</button>
+    <button data-role="customer" data-i18n="role.customer">客戶</button>
+    <button data-role="field" data-i18n="role.field">現場工程師</button>
+  </div>
+
+  <!-- Language switcher -->
+  <div class="seg-control" id="lang-switch">
+    <button data-lang="zh" class="active">中</button>
+    <button data-lang="en">EN</button>
+  </div>
+
+  <a class="gh-link" href="https://github.com/" target="_blank" rel="noopener" id="gh-link">
+    <span class="mono">↗</span> GitHub
+  </a>
+</header>
+
+<!-- ===== MAIN ===== -->
+<main>
+
+  <!-- ===== Section 1: Site Location ===== -->
+  <section class="panel" id="sec-location">
+    <div class="panel-head">
+      <div class="title" data-i18n="loc.title">Site Location</div>
+      <div class="badge mono" id="coords-badge">— · —</div>
+    </div>
+
+    <div class="grid grid-asym">
+      <div>
+        <label data-i18n="loc.address">Address or Place Name</label>
+        <input type="text" id="address-input" placeholder="例：新北市汐止區新台五路一段 / Taipei 101 / 25.04, 121.56" />
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button class="btn btn-primary" id="search-btn">
+            <span class="mono">⌕</span> <span data-i18n="loc.search">Search & Load Climate</span>
+          </button>
+          <button class="btn btn-ghost" id="locate-btn" data-tooltip="Use current location">
+            <span class="mono">⊙</span> <span data-i18n="loc.locate">My Location</span>
+          </button>
+        </div>
+
+        <div style="margin-top:14px;">
+          <div class="stat-label" data-i18n="loc.presets">Quick Presets</div>
+          <div class="preset-row" id="presets-row">
+            <button class="preset-chip" data-preset="taipei">台北 / Taipei</button>
+            <button class="preset-chip" data-preset="kaohsiung">高雄 / Kaohsiung</button>
+            <button class="preset-chip" data-preset="singapore">新加坡 / Singapore</button>
+            <button class="preset-chip" data-preset="dubai">杜拜 / Dubai</button>
+            <button class="preset-chip" data-preset="reykjavik">雷克雅維克 / Reykjavík</button>
+            <button class="preset-chip" data-preset="phoenix">鳳凰城 / Phoenix</button>
+          </div>
+        </div>
+
+        <p class="help" data-i18n="loc.help">系統會抓取該座標近 5 年的歷史氣候資料（Open-Meteo Archive API）。資料來源公開、免費、無需 API key。</p>
+      </div>
+
+      <div>
+        <div id="map"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Section 2: Site Parameters ===== -->
+  <section class="panel" id="sec-params">
+    <div class="panel-head">
+      <div class="title" data-i18n="params.title">Site Parameters</div>
+      <div class="badge mono">STEP 2</div>
+    </div>
+
+    <div class="grid grid-4">
+      <div>
+        <label data-i18n="params.height">Antenna Height (m)</label>
+        <input type="number" id="param-height" value="20" min="3" max="120" step="1" />
+        <p class="help" data-i18n="params.height.help">距地面架設高度，用於 Power Law 風速修正</p>
+      </div>
+
+      <div>
+        <label data-i18n="params.terrain">Terrain Roughness</label>
+        <select id="param-terrain">
+          <option value="0.10" data-i18n="terrain.coast">海岸 / 開闊海域 (α = 0.10)</option>
+          <option value="0.14" selected data-i18n="terrain.open">開闊地 / 草原 (α = 0.14)</option>
+          <option value="0.22" data-i18n="terrain.suburb">郊區 / 一般住宅區 (α = 0.22)</option>
+          <option value="0.33" data-i18n="terrain.urban">市區 / 高樓密集 (α = 0.33)</option>
+        </select>
+        <p class="help" data-i18n="params.terrain.help">影響 Power Law 指數 α 值</p>
+      </div>
+
+      <div>
+        <label data-i18n="params.shielding">Local Shielding</label>
+        <select id="param-shielding">
+          <option value="1.0" selected data-i18n="shield.none">無遮蔽 (×1.0)</option>
+          <option value="0.7" data-i18n="shield.partial">單向遮蔽 (×0.7)</option>
+          <option value="0.4" data-i18n="shield.heavy">多向遮蔽 (×0.4)</option>
+          <option value="0.2" data-i18n="shield.severe">嚴重遮蔽 / 凹角 (×0.2)</option>
+        </select>
+        <p class="help" data-i18n="params.shielding.help">5 m 內遮蔽物造成的風速折減</p>
+      </div>
+
+      <div>
+        <label data-i18n="params.sector">Antenna Sector Azimuth (°)</label>
+        <input type="number" id="param-sector" value="180" min="0" max="359" step="5" />
+        <p class="help" data-i18n="params.sector.help">天線扇區指向（0=北 / 90=東 / 180=南 / 270=西）。鰭片方向會以此為約束</p>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:10px; margin-top:18px;">
+      <button class="btn btn-primary" id="run-btn">
+        <span class="mono">▶</span> <span data-i18n="params.run">Run Site Analysis</span>
+      </button>
+      <button class="btn btn-ghost" id="save-site-btn">
+        <span class="mono">+</span> <span data-i18n="params.save">Save as Site</span>
+      </button>
+      <button class="btn btn-ghost engineer-only" id="export-pdf-btn">
+        <span class="mono">⇩</span> <span data-i18n="params.pdf">Export PDF Report</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ===== Section 3: Climate Summary ===== -->
+  <section class="panel" id="sec-summary">
+    <div class="panel-head">
+      <div class="title" data-i18n="summary.title">Climate Summary (5-yr History)</div>
+      <div class="badge mono" id="summary-period">— · —</div>
+    </div>
+    <div id="summary-grid" class="grid grid-6">
+      <div class="empty-state" style="grid-column: 1 / -1;">
+        <div class="icon">○</div>
+        <div data-i18n="empty.run">Run analysis to see climate data</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Section 4: Temperature Distribution + Wind Rose ===== -->
+  <section class="panel">
+    <div class="panel-head">
+      <div class="title" data-i18n="charts.title">Climate Distribution Analysis</div>
+      <div class="badge mono">DATA · OPEN-METEO</div>
+    </div>
+
+    <div class="grid grid-asym-r">
+      <div>
+        <div class="stat-label" style="margin-bottom:8px;" data-i18n="chart.temp">AMBIENT TEMPERATURE HISTOGRAM</div>
+        <div class="chart-wrap"><canvas id="temp-chart"></canvas></div>
+        <p class="help" data-i18n="chart.temp.help">紅色虛線為傳統散熱設計常用的 55 °C 假設。柱狀圖顯示實際當地一年中各溫度區間的小時數。</p>
+      </div>
+      <div>
+        <div class="stat-label" style="margin-bottom:8px;" data-i18n="chart.wind">WIND ROSE (10 m HEIGHT)</div>
+        <div class="windrose-wrap">
+          <svg class="windrose-svg" id="windrose-svg" viewBox="0 0 360 360"></svg>
+          <div class="windrose-legend" id="windrose-legend"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Section 5: Engineering Recommendations + Compass ===== -->
+  <section class="panel" id="sec-recommendations">
+    <div class="panel-head">
+      <div class="title" data-i18n="rec.title">Engineering Recommendations</div>
+      <div class="badge mono" id="rec-badge">PENDING</div>
+    </div>
+
+    <div class="grid grid-asym">
+      <div class="compass-wrap">
+        <svg class="compass-svg" id="compass-svg" viewBox="0 0 240 240"></svg>
+        <div class="stat-label" data-i18n="rec.compass">FIN ORIENTATION COMPASS</div>
+      </div>
+      <div>
+        <ul class="rec-list" id="rec-list">
+          <li>
+            <div class="rec-icon">○</div>
+            <div class="rec-body">
+              <div class="rec-label">Pending</div>
+              <div class="rec-value" data-i18n="rec.empty">Run analysis to see recommendations</div>
+              <div class="rec-note">Site location and parameters are required.</div>
+            </div>
+          </li>
+        </ul>
+        <div id="rec-alerts"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Section 6: Thermal Margin Recovery (Engineer-only) ===== -->
+  <section class="panel engineer-only" id="sec-margin">
+    <div class="panel-head">
+      <div class="title" data-i18n="margin.title">Thermal Margin Recovery — Volume Saving Estimator</div>
+      <div class="badge mono">ENGINEER</div>
+    </div>
+
+    <div class="grid grid-3">
+      <div>
+        <label data-i18n="margin.tjmax">Component Tj_max (°C)</label>
+        <input type="number" id="margin-tjmax" value="110" min="60" max="200" step="1" />
+        <p class="help" data-i18n="margin.tjmax.help">關鍵元件接面最高允許溫度，例如 FPGA / GaN PA</p>
+      </div>
+      <div>
+        <label data-i18n="margin.thetajc">θ_JC (K/W)</label>
+        <input type="number" id="margin-thetajc" value="0.4" min="0.05" max="20" step="0.05" />
+        <p class="help" data-i18n="margin.thetajc.help">封裝 junction-to-case 熱阻</p>
+      </div>
+      <div>
+        <label data-i18n="margin.power">Component Power (W)</label>
+        <input type="number" id="margin-power" value="40" min="1" max="2000" step="1" />
+      </div>
+    </div>
+
+    <div style="margin-top:18px;" class="grid grid-2">
+      <div class="stat">
+        <div class="stat-label" data-i18n="margin.original">Original Design Envelope</div>
+        <div class="stat-value mono">T<sub>amb</sub> = 55 °C / V = 0 m/s</div>
+        <div class="stat-foot mono" id="margin-orig-detail">θ<sub>CA</sub> required = — K/W</div>
+      </div>
+      <div class="stat stat-accent">
+        <div class="stat-label" data-i18n="margin.realistic">Realistic Site Envelope</div>
+        <div class="stat-value mono" id="margin-realistic-env">T<sub>amb</sub> = — / V = — m/s</div>
+        <div class="stat-foot mono" id="margin-real-detail">θ<sub>CA</sub> available = — K/W</div>
+      </div>
+    </div>
+
+    <div id="margin-results" style="margin-top:18px;"></div>
+
+    <details style="margin-top:18px;">
+      <summary data-i18n="margin.method">Calculation Methodology</summary>
+      <div class="detail-body">
+        <p><strong>Power Law wind correction:</strong> <code>V_h = V_10 × (h/10)^α × s</code>
+        where <code>α</code> 為地形粗糙度指數（海岸 0.10、開闊地 0.14、郊區 0.22、都會 0.33），
+        <code>s</code> 為遮蔽折減係數。</p>
+        <p><strong>Forced convection coefficient (rough estimate):</strong>
+        <code>h_forced ≈ h_natural × √(1 + V_h / 0.5)</code>，僅作數量級評估，不替代 CFD。</p>
+        <p><strong>Margin recovery (K):</strong> <code>ΔT = (55 − T_p95)</code>，搭配風速增益後等效散熱餘裕。</p>
+        <p><strong>Volume saving heuristic:</strong> 假設散熱器熱阻 <code>θ_HS ∝ 1/h × 1/A_fin</code>，鰭片面積與體積近似線性，
+        因此 <code>ΔV/V ≈ 1 − θ_HS,new / θ_HS,orig</code>。實務上仍需 CFD 驗證。</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ===== Section 7: Multi-Site Comparison (Engineer-only) ===== -->
+  <section class="panel engineer-only" id="sec-multisite">
+    <div class="panel-head">
+      <div class="title" data-i18n="multi.title">Multi-Site Comparison</div>
+      <div class="badge mono"><span id="multi-count">0</span> SITES</div>
+    </div>
+
+    <div id="multi-table-wrap">
+      <div class="empty-state">
+        <div class="icon">⊟</div>
+        <div data-i18n="multi.empty">No sites saved yet. Run analysis and click "Save as Site" to compare.</div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px; margin-top:14px;">
+      <button class="btn btn-ghost btn-sm" id="export-csv-btn">
+        <span class="mono">⇩</span> Export CSV
+      </button>
+      <button class="btn btn-ghost btn-sm" id="clear-sites-btn">
+        <span class="mono">×</span> Clear All
+      </button>
+    </div>
+  </section>
+
+  <!-- ===== Section 8: Field Handoff (Field-only) ===== -->
+  <section class="panel field-only" id="sec-field">
+    <div class="panel-head">
+      <div class="title" data-i18n="field.title">Field Installation Card</div>
+      <div class="badge mono">FIELD</div>
+    </div>
+    <div id="field-summary">
+      <div class="empty-state">
+        <div class="icon">⊙</div>
+        <div data-i18n="empty.run">Run analysis to see installation guide</div>
+      </div>
+    </div>
+    <div id="qr-container" style="display:none; margin-top:16px;">
+      <div id="qrcode"></div>
+    </div>
+  </section>
+
+  <!-- Methodology disclosure (always visible) -->
+  <section class="panel" id="sec-methodology">
+    <details>
+      <summary data-i18n="meth.title">Calculation Assumptions & Data Sources</summary>
+      <div class="detail-body">
+        <p><strong>Climate data source:</strong> <a href="https://open-meteo.com/en/docs/historical-weather-api" target="_blank" style="color:var(--accent);">Open-Meteo Historical Weather API</a>，
+        免費、無需 API key、CC-BY 4.0 授權。預設取近 5 年逐時 (hourly) 資料：
+        <code>temperature_2m</code>、<code>wind_speed_10m</code>、<code>wind_direction_10m</code>、<code>shortwave_radiation</code>。</p>
+        <p><strong>Wind speed altitude correction (Power Law):</strong> <code>V_h = V_10 × (h / 10)^α × s_shield</code></p>
+        <table>
+          <tr><td>Coastal / Open Sea</td><td>α = 0.10</td></tr>
+          <tr><td>Open terrain / grassland</td><td>α = 0.14</td></tr>
+          <tr><td>Suburban</td><td>α = 0.22</td></tr>
+          <tr><td>Urban dense</td><td>α = 0.33</td></tr>
+        </table>
+        <p><strong>Prevailing wind:</strong> 取最熱季（北半球 6–9 月，南半球 12–3 月）日間 10–18 時的 16 方位風頻率分佈。</p>
+        <p><strong>Fin orientation rule:</strong> 鰭片走向 = 平行於主導風向（讓氣流可順暢通過鰭片通道）。若主導風向頻率 &lt; 30 %，會降級為「自然對流為主」並標示警告。</p>
+        <p><strong>Sector constraint:</strong> 天線扇區指向通常是固定的，因此實際只能在 ±45° 範圍內調整機體面向。系統會在這個約束下找出最接近主風向的方向。</p>
+        <p><strong>Caveats:</strong> 本工具是 <em>佈建前的初步評估</em>，非 CFD 模擬替代品。最終散熱規格仍需用 FloTHERM / Icepak 驗證關鍵 worst-case。Open-Meteo 為再分析資料，實際微氣候會因建物、植被、海陸風變化。</p>
+      </div>
+    </details>
+  </section>
+
+</main>
+
+<footer class="app-foot">
+  <div>5G RRU Site Thermal Advisor · MIT License ·
+    <a href="https://github.com/" target="_blank">GitHub</a> ·
+    <a href="docs/methodology.md" target="_blank">Methodology</a> ·
+    <a href="https://open-meteo.com/" target="_blank">Powered by Open-Meteo</a>
+  </div>
+  <div style="margin-top:6px;">設計目的：用真實氣候資料替代「55 °C / 0 m/s」過於保守的假設，協助散熱工程師避免 over-design。</div>
+</footer>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="label" id="loading-label">Fetching climate data…</div>
+</div>
+
+<!-- ===== Application Script ===== -->
+<script>
+'use strict';
+
+/* =============================================================
+   CONSTANTS
+   ============================================================= */
+const ALPHA_VALUES = { '0.10': 0.10, '0.14': 0.14, '0.22': 0.22, '0.33': 0.33 };
+const SHIELDING_VALUES = { '1.0': 1.0, '0.7': 0.7, '0.4': 0.4, '0.2': 0.2 };
+
+const DIR_LABELS_16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+const DIR_LABELS_16_ZH = ['北','北北東','東北','東北東','東','東南東','東南','南南東','南','南南西','西南','西南西','西','西北西','西北','北北西'];
+
+const SPEED_BINS = [
+  { min: 0,  max: 1.5,  label: '0–1.5 m/s', color: '#1f3850' },
+  { min: 1.5, max: 3.0, label: '1.5–3 m/s', color: '#2e6584' },
+  { min: 3.0, max: 5.0, label: '3–5 m/s',   color: '#4fd4e6' },
+  { min: 5.0, max: 8.0, label: '5–8 m/s',   color: '#f5b250' },
+  { min: 8.0, max: 999, label: '> 8 m/s',   color: '#ef5a6f' }
+];
+
+const PRESETS = {
+  taipei:     { name: '台北 101 / Taipei 101', lat: 25.0339, lon: 121.5645 },
+  kaohsiung:  { name: '高雄市政府 / Kaohsiung', lat: 22.6202, lon: 120.3122 },
+  singapore:  { name: 'Singapore Changi',     lat: 1.3644,  lon: 103.9915 },
+  dubai:      { name: 'Dubai Marina',         lat: 25.0805, lon: 55.1403  },
+  reykjavik:  { name: 'Reykjavík, Iceland',   lat: 64.1466, lon: -21.9426 },
+  phoenix:    { name: 'Phoenix, AZ, USA',     lat: 33.4484, lon: -112.0740 }
+};
+
+const I18N = {
+  zh: {
+    'brand.title': '5G RRU 戶外基站散熱與佈建方位評估',
+    'brand.sub': 'v1.0 · 工程師版',
+    'role.engineer': '熱流工程師',
+    'role.customer': '客戶',
+    'role.field': '現場工程師',
+    'loc.title': '架設位置',
+    'loc.address': '地址或地名',
+    'loc.search': '搜尋並載入氣候資料',
+    'loc.locate': '使用目前位置',
+    'loc.presets': '快速範例站點',
+    'loc.help': '系統會抓取該座標近 5 年的歷史氣候資料 (Open-Meteo Archive API)。資料來源公開、免費、無需 API key。',
+    'params.title': '現場參數',
+    'params.height': '架設高度 (m)',
+    'params.height.help': '距地面架設高度，用於 Power Law 風速修正',
+    'params.terrain': '地形粗糙度',
+    'params.terrain.help': '影響 Power Law 指數 α 值',
+    'params.shielding': '近距遮蔽',
+    'params.shielding.help': '5 m 內遮蔽物造成的風速折減',
+    'params.sector': '天線扇區方位 (°)',
+    'params.sector.help': '天線扇區指向 (0=北 / 90=東 / 180=南 / 270=西)。鰭片方向會以此為約束',
+    'params.run': '執行站點分析',
+    'params.save': '儲存為站點',
+    'params.pdf': '匯出 PDF 報告',
+    'terrain.coast': '海岸 / 開闊海域 (α = 0.10)',
+    'terrain.open': '開闊地 / 草原 (α = 0.14)',
+    'terrain.suburb': '郊區 / 一般住宅區 (α = 0.22)',
+    'terrain.urban': '市區 / 高樓密集 (α = 0.33)',
+    'shield.none': '無遮蔽 (×1.0)',
+    'shield.partial': '單向遮蔽 (×0.7)',
+    'shield.heavy': '多向遮蔽 (×0.4)',
+    'shield.severe': '嚴重遮蔽 / 凹角 (×0.2)',
+    'summary.title': '氣候摘要 (近 5 年)',
+    'charts.title': '氣候分佈分析',
+    'chart.temp': '環境溫度直方圖',
+    'chart.temp.help': '紅色虛線為傳統散熱設計常用的 55 °C 假設。柱狀圖顯示實際當地一年中各溫度區間的小時數。',
+    'chart.wind': '風玫瑰圖 (10 m 高度)',
+    'rec.title': '工程建議',
+    'rec.empty': '執行分析以查看建議',
+    'rec.compass': '鰭片方向羅盤',
+    'margin.title': '散熱餘裕回收 — 體積節省估算',
+    'margin.tjmax': '元件 Tj_max (°C)',
+    'margin.tjmax.help': '關鍵元件接面最高允許溫度，例如 FPGA / GaN PA',
+    'margin.thetajc': 'θ_JC (K/W)',
+    'margin.thetajc.help': '封裝 junction-to-case 熱阻',
+    'margin.power': '元件功耗 (W)',
+    'margin.original': '原始設計包絡 (傳統假設)',
+    'margin.realistic': '實際站點包絡',
+    'margin.method': '計算方法',
+    'multi.title': '多站點比較',
+    'multi.empty': '尚未儲存站點。執行分析後點擊「儲存為站點」進行比較。',
+    'field.title': '現場安裝卡片',
+    'meth.title': '計算假設與資料來源',
+    'empty.run': '執行分析以查看資料'
+  },
+  en: {
+    'brand.title': '5G RRU Site Thermal Advisor',
+    'brand.sub': 'v1.0 · Engineering Edition',
+    'role.engineer': 'Thermal Engineer',
+    'role.customer': 'Customer',
+    'role.field': 'Field Engineer',
+    'loc.title': 'Site Location',
+    'loc.address': 'Address or Place Name',
+    'loc.search': 'Search & Load Climate',
+    'loc.locate': 'My Location',
+    'loc.presets': 'Quick Presets',
+    'loc.help': 'Fetches 5 years of historical climate data via the Open-Meteo Archive API. Free, public, no API key required.',
+    'params.title': 'Site Parameters',
+    'params.height': 'Antenna Height (m)',
+    'params.height.help': 'Above-ground installation height. Used for Power Law wind correction.',
+    'params.terrain': 'Terrain Roughness',
+    'params.terrain.help': 'Determines Power Law exponent α',
+    'params.shielding': 'Local Shielding',
+    'params.shielding.help': 'Wind reduction from obstructions within 5 m',
+    'params.sector': 'Antenna Sector Azimuth (°)',
+    'params.sector.help': 'Antenna sector direction (0=N / 90=E / 180=S / 270=W). Constrains fin orientation.',
+    'params.run': 'Run Site Analysis',
+    'params.save': 'Save as Site',
+    'params.pdf': 'Export PDF Report',
+    'terrain.coast': 'Coastal / Open Sea (α = 0.10)',
+    'terrain.open': 'Open terrain / grassland (α = 0.14)',
+    'terrain.suburb': 'Suburban / residential (α = 0.22)',
+    'terrain.urban': 'Urban / dense buildings (α = 0.33)',
+    'shield.none': 'None (×1.0)',
+    'shield.partial': 'One-side (×0.7)',
+    'shield.heavy': 'Multi-side (×0.4)',
+    'shield.severe': 'Severe / corner (×0.2)',
+    'summary.title': 'Climate Summary (5-yr History)',
+    'charts.title': 'Climate Distribution Analysis',
+    'chart.temp': 'AMBIENT TEMPERATURE HISTOGRAM',
+    'chart.temp.help': 'Red dashed line is the 55 °C assumption used in traditional thermal design. Bars show actual hours per year in each temperature bin.',
+    'chart.wind': 'WIND ROSE (10 m HEIGHT)',
+    'rec.title': 'Engineering Recommendations',
+    'rec.empty': 'Run analysis to see recommendations',
+    'rec.compass': 'Fin Orientation Compass',
+    'margin.title': 'Thermal Margin Recovery — Volume Saving Estimator',
+    'margin.tjmax': 'Component Tj_max (°C)',
+    'margin.tjmax.help': 'Maximum allowable junction temperature (e.g. FPGA / GaN PA)',
+    'margin.thetajc': 'θ_JC (K/W)',
+    'margin.thetajc.help': 'Package junction-to-case thermal resistance',
+    'margin.power': 'Component Power (W)',
+    'margin.original': 'Original Design Envelope (Traditional)',
+    'margin.realistic': 'Realistic Site Envelope',
+    'margin.method': 'Calculation Methodology',
+    'multi.title': 'Multi-Site Comparison',
+    'multi.empty': 'No sites saved yet. Run analysis and click "Save as Site" to compare.',
+    'field.title': 'Field Installation Card',
+    'meth.title': 'Calculation Assumptions & Data Sources',
+    'empty.run': 'Run analysis to see data'
+  }
+};
+
+/* =============================================================
+   STATE
+   ============================================================= */
+const state = {
+  lang: 'zh',
+  role: 'engineer',
+  // current site info
+  location: { lat: 25.0339, lon: 121.5645, name: 'Taipei 101' },
+  params: { height: 20, alpha: 0.14, shielding: 1.0, sector: 180 },
+  climate: null,        // raw API data
+  analysis: null,       // computed results
+  savedSites: []        // for multi-site comparison
+};
+
+let map = null;
+let mapMarker = null;
+let tempChart = null;
+
+/* =============================================================
+   UTILITIES
+   ============================================================= */
+function t(key) { return I18N[state.lang][key] || key; }
+
+function fmt(n, d = 1) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return Number(n).toFixed(d);
+}
+
+function $(sel, root = document) { return root.querySelector(sel); }
+function $$(sel, root = document) { return Array.from(root.querySelectorAll(sel)); }
+
+function toast(msg, type = 'info') {
+  const box = document.createElement('div');
+  box.className = 'toast' + (type === 'error' ? ' error' : type === 'success' ? ' success' : '');
+  box.textContent = msg;
+  $('#toast-container').appendChild(box);
+  setTimeout(() => { box.style.opacity = '0'; box.style.transform = 'translateX(20px)'; box.style.transition = 'all 0.3s'; }, 4000);
+  setTimeout(() => box.remove(), 4400);
+}
+
+function showLoading(label = 'Fetching climate data…') {
+  $('#loading-label').textContent = label;
+  $('#loading-overlay').classList.add('show');
+}
+function hideLoading() { $('#loading-overlay').classList.remove('show'); }
+
+/* =============================================================
+   API: Open-Meteo Geocoding & Historical Weather
+   ============================================================= */
+async function geocodeAddress(query) {
+  // Allow direct lat,lon entry
+  const m = query.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,，]\s*(-?\d+(?:\.\d+)?)\s*$/);
+  if (m) {
+    return { lat: parseFloat(m[1]), lon: parseFloat(m[2]), name: `${m[1]}, ${m[2]}` };
+  }
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=${state.lang}&format=json`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Geocoding failed: HTTP ' + res.status);
+  const j = await res.json();
+  if (!j.results || j.results.length === 0) throw new Error('No location found for: ' + query);
+  const r = j.results[0];
+  return { lat: r.latitude, lon: r.longitude, name: r.name + (r.admin1 ? ', ' + r.admin1 : '') + (r.country ? ', ' + r.country : '') };
+}
+
+const CLIMATE_CACHE_PREFIX = 'rru-climate-v1-';
+function climateCacheKey(lat, lon) {
+  return `${CLIMATE_CACHE_PREFIX}${lat.toFixed(2)}_${lon.toFixed(2)}`;
+}
+
+async function fetchHistoricalClimate(lat, lon) {
+  const key = climateCacheKey(lat, lon);
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) {
+      const obj = JSON.parse(cached);
+      if (Date.now() - obj.fetchedAt < 30 * 24 * 3600 * 1000) {
+        return obj.data;
+      }
+    }
+  } catch (e) { /* ignore */ }
+
+  // 5 years of hourly data
+  const today = new Date();
+  const endDate = new Date(today);
+  endDate.setMonth(endDate.getMonth() - 1); // Open-Meteo archive has ~1 mo lag
+  const startDate = new Date(endDate);
+  startDate.setFullYear(startDate.getFullYear() - 5);
+
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
+              `&start_date=${fmt(startDate)}&end_date=${fmt(endDate)}` +
+              `&hourly=temperature_2m,wind_speed_10m,wind_direction_10m,shortwave_radiation` +
+              `&timezone=auto&wind_speed_unit=ms`;
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Climate API failed: HTTP ' + res.status);
+  const j = await res.json();
+  if (!j.hourly) throw new Error('Climate API returned no hourly data');
+
+  try { localStorage.setItem(key, JSON.stringify({ fetchedAt: Date.now(), data: j })); } catch (e) { /* quota */ }
+  return j;
+}
+
+/* =============================================================
+   CALCULATIONS
+   ============================================================= */
+
+// Power Law wind correction
+function powerLawWind(v10, h, alpha, shielding) {
+  if (h <= 0) h = 0.1;
+  return v10 * Math.pow(h / 10, alpha) * shielding;
+}
+
+// Statistical helpers
+function percentile(sorted, p) {
+  if (sorted.length === 0) return null;
+  const idx = (sorted.length - 1) * p;
+  const lo = Math.floor(idx), hi = Math.ceil(idx);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+}
+
+function temperatureStats(temps) {
+  const valid = temps.filter(x => x != null && !isNaN(x));
+  const sorted = [...valid].sort((a, b) => a - b);
+  const sum = valid.reduce((a, b) => a + b, 0);
+  return {
+    count: valid.length,
+    mean: sum / valid.length,
+    p50: percentile(sorted, 0.50),
+    p90: percentile(sorted, 0.90),
+    p95: percentile(sorted, 0.95),
+    p99: percentile(sorted, 0.99),
+    max: sorted[sorted.length - 1],
+    min: sorted[0],
+    hoursAbove: {
+      40: valid.filter(t => t > 40).length,
+      45: valid.filter(t => t > 45).length,
+      50: valid.filter(t => t > 50).length,
+      55: valid.filter(t => t > 55).length
+    },
+    yearsCovered: valid.length / 8760
+  };
+}
+
+function temperatureHistogram(temps, binSize = 1) {
+  const valid = temps.filter(x => x != null && !isNaN(x));
+  // Use reduce to avoid Math.min/max stack overflow on huge arrays
+  let min = Infinity, max = -Infinity;
+  for (let i = 0; i < valid.length; i++) {
+    if (valid[i] < min) min = valid[i];
+    if (valid[i] > max) max = valid[i];
+  }
+  min = Math.floor(min);
+  max = Math.ceil(max);
+  const bins = [];
+  for (let t = min; t <= max; t += binSize) {
+    bins.push({ x: t, count: 0 });
+  }
+  valid.forEach(t => {
+    const idx = Math.floor((t - min) / binSize);
+    if (idx >= 0 && idx < bins.length) bins[idx].count++;
+  });
+  // Convert to hours/year
+  const yearScale = 8760 / valid.length;
+  bins.forEach(b => b.hoursPerYear = b.count * yearScale);
+  return bins;
+}
+
+// Wind rose: 16 directions × 5 speed bins, returns frequency matrix
+function windRoseData(speeds, directions, opts = {}) {
+  const valid = [];
+  for (let i = 0; i < speeds.length; i++) {
+    if (speeds[i] != null && directions[i] != null && !isNaN(speeds[i]) && !isNaN(directions[i])) {
+      valid.push({ s: speeds[i], d: directions[i] });
+    }
+  }
+  // Filter to "hot months" if requested (for prevailing wind during cooling-critical period)
+  // (caller can pre-filter)
+
+  const matrix = Array.from({ length: 16 }, () => Array(SPEED_BINS.length).fill(0));
+  let total = 0;
+  let calmCount = 0;
+  valid.forEach(({ s, d }) => {
+    if (s < 0.5) { calmCount++; total++; return; }
+    // Direction bin: 0..360 → 0..15
+    let dirBin = Math.round((d % 360) / 22.5) % 16;
+    // Speed bin
+    let spdBin = SPEED_BINS.findIndex(b => s >= b.min && s < b.max);
+    if (spdBin < 0) spdBin = SPEED_BINS.length - 1;
+    matrix[dirBin][spdBin]++;
+    total++;
+  });
+  // Frequencies
+  const dirFreq = matrix.map(row => row.reduce((a, b) => a + b, 0) / total);
+  const matrixFreq = matrix.map(row => row.map(c => c / total));
+
+  // Find prevailing direction (highest frequency among 16)
+  let maxIdx = 0;
+  dirFreq.forEach((f, i) => { if (f > dirFreq[maxIdx]) maxIdx = i; });
+
+  // Mean wind speed (excluding calm)
+  const movingValid = valid.filter(v => v.s >= 0.5);
+  const meanSpeed = movingValid.length > 0 ? movingValid.reduce((a, b) => a + b.s, 0) / movingValid.length : 0;
+
+  return {
+    matrix: matrixFreq,
+    dirFreq,
+    prevailingIdx: maxIdx,
+    prevailingDeg: maxIdx * 22.5,
+    prevailingFreq: dirFreq[maxIdx],
+    calmFreq: calmCount / total,
+    meanSpeed,
+    total
+  };
+}
+
+// Filter API hourly data to "hot months" — months with mean temp in top quartile
+function filterHotPeriod(climate) {
+  const times = climate.hourly.time;
+  const temps = climate.hourly.temperature_2m;
+  // group by month
+  const monthMeans = Array(12).fill(0).map(() => ({ sum: 0, n: 0 }));
+  times.forEach((iso, i) => {
+    const m = parseInt(iso.slice(5, 7), 10) - 1;
+    if (temps[i] != null) {
+      monthMeans[m].sum += temps[i];
+      monthMeans[m].n += 1;
+    }
+  });
+  const means = monthMeans.map(x => x.n ? x.sum / x.n : -999);
+  const sorted = [...means].sort((a, b) => b - a);
+  const threshold = sorted[2]; // top 3 hottest months
+  const hotMonths = means.map((m, i) => m >= threshold ? i : -1).filter(i => i >= 0);
+  return hotMonths;
+}
+
+// Run the full analysis
+function runAnalysis() {
+  if (!state.climate) return null;
+  const c = state.climate;
+  const temps = c.hourly.temperature_2m;
+  const wind = c.hourly.wind_speed_10m;
+  const dir = c.hourly.wind_direction_10m;
+  const sw = c.hourly.shortwave_radiation;
+  const times = c.hourly.time;
+
+  const tStats = temperatureStats(temps);
+  const tHist = temperatureHistogram(temps, 1);
+  const rose = windRoseData(wind, dir);
+
+  // Hot-period analysis (cooling-critical wind direction)
+  const hotMonths = filterHotPeriod(c);
+  const hotIdx = [];
+  times.forEach((iso, i) => {
+    const m = parseInt(iso.slice(5, 7), 10) - 1;
+    if (hotMonths.includes(m)) hotIdx.push(i);
+  });
+  const hotWind = hotIdx.map(i => wind[i]);
+  const hotDir = hotIdx.map(i => dir[i]);
+  const hotRose = windRoseData(hotWind, hotDir);
+
+  const hotTemps = hotIdx.map(i => temps[i]).filter(x => x != null);
+  const hotTempStats = temperatureStats(hotTemps);
+
+  // Solar radiation peak (use reduce to avoid Math.max stack overflow on large arrays)
+  const validSw = sw.filter(x => x != null && !isNaN(x));
+  const peakSolar = validSw.reduce((m, v) => v > m ? v : m, -Infinity);
+  const meanDailyMaxSolar = (() => {
+    // group by day, find max each day, average
+    const byDay = {};
+    times.forEach((iso, i) => {
+      const day = iso.slice(0, 10);
+      if (sw[i] != null) {
+        byDay[day] = Math.max(byDay[day] || 0, sw[i]);
+      }
+    });
+    const dailyMaxes = Object.values(byDay);
+    return dailyMaxes.reduce((a, b) => a + b, 0) / dailyMaxes.length;
+  })();
+
+  // Wind correction
+  const v10mean = rose.meanSpeed;
+  const v10p95 = percentile([...wind].filter(x => x != null && !isNaN(x)).sort((a, b) => a - b), 0.50); // median, more conservative for design
+  const vh = powerLawWind(v10mean, state.params.height, state.params.alpha, state.params.shielding);
+  const vh_hot = powerLawWind(hotRose.meanSpeed, state.params.height, state.params.alpha, state.params.shielding);
+
+  // Recommendations
+  const rec = computeRecommendations(hotRose, state.params.sector);
+
+  return {
+    tStats,
+    tHist,
+    hotTempStats,
+    rose,
+    hotRose,
+    hotMonths,
+    peakSolar,
+    meanDailyMaxSolar,
+    v10mean,
+    v10p95,
+    vh,
+    vh_hot,
+    rec,
+    period: { start: times[0].slice(0, 10), end: times[times.length - 1].slice(0, 10) }
+  };
+}
+
+function computeRecommendations(rose, sectorAz) {
+  const prevailingDeg = rose.prevailingDeg;
+  const prevailingFreq = rose.prevailingFreq;
+  const prevailingLabel = state.lang === 'zh' ? DIR_LABELS_16_ZH[rose.prevailingIdx] : DIR_LABELS_16[rose.prevailingIdx];
+
+  // Fin orientation: parallel to prevailing wind = same direction (so wind flows along fin channels)
+  // Find the best machine rotation within ±45° of sectorAz that aligns face-into-wind
+  // Wind comes FROM prevailingDeg, so the unit should face TOWARDS prevailingDeg (180° opposite of wind origin)
+  // Actually for a vertical RRU with vertical fins, we want fins parallel to wind flow direction
+  // Wind flow direction = prevailingDeg + 180 (wind comes FROM, flows TO)
+  const windFlowDeg = (prevailingDeg + 180) % 360;
+  const finAxis = windFlowDeg; // fins should be parallel to this axis
+
+  // Sector constraint: machine can rotate ±45° from sectorAz
+  // We want to minimize the angle between (sectorAz + offset) and the wind axis
+  // Wind axis is bidirectional (a line, not vector), so check both windFlowDeg and (windFlowDeg+180)
+  function angleDiff(a, b) {
+    let d = ((a - b + 540) % 360) - 180;
+    return Math.abs(d);
+  }
+  let bestOffset = 0, bestDiff = Infinity;
+  for (let off = -45; off <= 45; off += 1) {
+    const a = (sectorAz + off + 360) % 360;
+    const d1 = angleDiff(a, windFlowDeg);
+    const d2 = angleDiff(a, (windFlowDeg + 180) % 360);
+    const d = Math.min(d1, d2);
+    if (d < bestDiff) { bestDiff = d; bestOffset = off; }
+  }
+  const recommendedAz = (sectorAz + bestOffset + 360) % 360;
+  const alignmentQuality = Math.max(0, 1 - bestDiff / 45);
+
+  // Reliability of forced convection assistance
+  let convMode, modeNote;
+  if (prevailingFreq >= 0.30) {
+    convMode = 'mixed';
+    modeNote = state.lang === 'zh'
+      ? `主導風向頻率 ${(prevailingFreq * 100).toFixed(0)}% ≥ 30%，可將強制對流納入散熱餘裕計算`
+      : `Prevailing direction frequency ${(prevailingFreq * 100).toFixed(0)}% ≥ 30%. Forced convection can be credited.`;
+  } else {
+    convMode = 'natural';
+    modeNote = state.lang === 'zh'
+      ? `主導風向頻率僅 ${(prevailingFreq * 100).toFixed(0)}%，建議純以自然對流為設計基準，風為 bonus`
+      : `Prevailing direction only ${(prevailingFreq * 100).toFixed(0)}%. Use natural convection as baseline, wind as bonus.`;
+  }
+
+  return {
+    prevailingDeg,
+    prevailingLabel,
+    prevailingFreq,
+    finAxisDeg: finAxis,
+    recommendedAz,
+    rotationOffset: bestOffset,
+    alignmentQuality,
+    bestDiff,
+    convMode,
+    modeNote
+  };
+}
+
+/* =============================================================
+   UI RENDERING
+   ============================================================= */
+function renderSummaryCards(a) {
+  const grid = $('#summary-grid');
+  if (!a) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><div class="icon">○</div><div>${t('empty.run')}</div></div>`;
+    return;
+  }
+  const ts = a.tStats;
+  grid.innerHTML = `
+    <div class="stat">
+      <div class="stat-label">${state.lang === 'zh' ? '年均溫' : 'Annual Mean'}</div>
+      <div class="stat-value num">${fmt(ts.mean)}<span class="unit">°C</span></div>
+      <div class="stat-foot">P50: ${fmt(ts.p50)}°C</div>
+    </div>
+    <div class="stat stat-accent">
+      <div class="stat-label">P95 ${state.lang === 'zh' ? '溫度' : 'Temp'}</div>
+      <div class="stat-value num">${fmt(ts.p95)}<span class="unit">°C</span></div>
+      <div class="stat-foot">${state.lang === 'zh' ? '5 % 時間超過' : '5 % of time above'}</div>
+    </div>
+    <div class="stat ${ts.max > 50 ? 'stat-warn' : ''}">
+      <div class="stat-label">${state.lang === 'zh' ? '歷史極端' : 'Historical Max'}</div>
+      <div class="stat-value num">${fmt(ts.max)}<span class="unit">°C</span></div>
+      <div class="stat-foot">vs 設計 55°C</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">${state.lang === 'zh' ? '10 m 平均風速' : 'Mean Wind @10 m'}</div>
+      <div class="stat-value num">${fmt(a.v10mean)}<span class="unit">m/s</span></div>
+      <div class="stat-foot">${state.lang === 'zh' ? '排除靜風' : 'excl. calm'}</div>
+    </div>
+    <div class="stat stat-accent">
+      <div class="stat-label">${state.lang === 'zh' ? '修正風速' : 'Corrected Wind'} @${state.params.height}m</div>
+      <div class="stat-value num">${fmt(a.vh)}<span class="unit">m/s</span></div>
+      <div class="stat-foot">α=${state.params.alpha} · s=${state.params.shielding}</div>
+    </div>
+    <div class="stat ${ts.hoursAbove[55] > 0 ? 'stat-error' : 'stat-accent'}">
+      <div class="stat-label">${state.lang === 'zh' ? '> 55°C 時數/年' : 'Hours/yr > 55°C'}</div>
+      <div class="stat-value num">${(ts.hoursAbove[55] / ts.yearsCovered).toFixed(0)}</div>
+      <div class="stat-foot">> 50°C: ${(ts.hoursAbove[50] / ts.yearsCovered).toFixed(0)} h</div>
+    </div>
+  `;
+  $('#summary-period').textContent = `${a.period.start} → ${a.period.end}`;
+}
+
+function renderTempChart(a) {
+  const ctx = $('#temp-chart');
+  if (tempChart) tempChart.destroy();
+  if (!a) return;
+  const labels = a.tHist.map(b => b.x);
+  const data = a.tHist.map(b => b.hoursPerYear);
+
+  // 55°C marker plugin
+  const refLinePlugin = {
+    id: 'refLines',
+    afterDraw(chart) {
+      const { ctx, scales: { x, y } } = chart;
+      ctx.save();
+      const draw = (val, color, label) => {
+        const xPos = x.getPixelForValue(val);
+        if (xPos < x.left || xPos > x.right) return;
+        ctx.beginPath();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.moveTo(xPos, y.top);
+        ctx.lineTo(xPos, y.bottom);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = color;
+        ctx.font = '11px IBM Plex Mono, monospace';
+        ctx.fillText(label, xPos + 4, y.top + 12);
+      };
+      draw(55, '#ef5a6f', '55°C design');
+      draw(a.tStats.p95, '#4fd4e6', `P95 ${a.tStats.p95.toFixed(1)}°C`);
+      draw(a.tStats.max, '#f5b250', `Max ${a.tStats.max.toFixed(1)}°C`);
+      ctx.restore();
+    }
+  };
+
+  tempChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Hours per year',
+        data,
+        backgroundColor: ctx => {
+          const v = ctx.parsed?.x ?? labels[ctx.dataIndex];
+          if (v >= 55) return '#ef5a6f';
+          if (v >= 45) return '#f5b250';
+          if (v >= 35) return '#4fd4e6';
+          return '#2b8a99';
+        },
+        borderRadius: 2,
+        barPercentage: 0.95,
+        categoryPercentage: 0.95
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 400 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1f2738',
+          borderColor: '#3a4660',
+          borderWidth: 1,
+          titleColor: '#e6edf7',
+          bodyColor: '#94a1b8',
+          padding: 10,
+          callbacks: {
+            title: items => `${items[0].label} °C`,
+            label: ctx => `${ctx.parsed.y.toFixed(0)} hours / year`
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: 'Ambient Temperature (°C)', color: '#5e6a82', font: { size: 11, family: 'IBM Plex Mono' } },
+          grid: { color: '#1c2333' },
+          ticks: { color: '#5e6a82', font: { family: 'IBM Plex Mono', size: 10 } }
+        },
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'Hours / Year', color: '#5e6a82', font: { size: 11, family: 'IBM Plex Mono' } },
+          grid: { color: '#1c2333' },
+          ticks: { color: '#5e6a82', font: { family: 'IBM Plex Mono', size: 10 } }
+        }
+      }
+    },
+    plugins: [refLinePlugin]
+  });
+}
+
+function renderWindRose(a) {
+  const svg = $('#windrose-svg');
+  svg.innerHTML = '';
+  const legend = $('#windrose-legend');
+  legend.innerHTML = '';
+  if (!a) return;
+
+  const cx = 180, cy = 180;
+  const rMax = 130;
+  const rose = a.hotRose;
+
+  // Background rings
+  const NS = 'http://www.w3.org/2000/svg';
+  for (let r = rMax / 4; r <= rMax; r += rMax / 4) {
+    const circle = document.createElementNS(NS, 'circle');
+    circle.setAttribute('cx', cx);
+    circle.setAttribute('cy', cy);
+    circle.setAttribute('r', r);
+    circle.setAttribute('fill', 'none');
+    circle.setAttribute('stroke', '#232c3d');
+    circle.setAttribute('stroke-width', '1');
+    circle.setAttribute('stroke-dasharray', '2 4');
+    svg.appendChild(circle);
+  }
+  // Cross axes
+  ['M ' + cx + ' ' + (cy - rMax) + ' L ' + cx + ' ' + (cy + rMax),
+   'M ' + (cx - rMax) + ' ' + cy + ' L ' + (cx + rMax) + ' ' + cy].forEach(d => {
+    const p = document.createElementNS(NS, 'path');
+    p.setAttribute('d', d); p.setAttribute('stroke', '#232c3d'); p.setAttribute('stroke-width', '1');
+    svg.appendChild(p);
+  });
+
+  const maxFreq = Math.max(...rose.dirFreq);
+  if (maxFreq === 0) return;
+
+  // Stacked sectors
+  rose.matrix.forEach((speedBins, dirIdx) => {
+    let cumFreq = 0;
+    speedBins.forEach((freq, spdIdx) => {
+      if (freq === 0) return;
+      const r0 = (cumFreq / maxFreq) * rMax;
+      const r1 = ((cumFreq + freq) / maxFreq) * rMax;
+      // Angle: dirIdx*22.5° - 90° (so N is up). Sector ±11.25°
+      const a0 = (dirIdx * 22.5 - 90 - 11.25) * Math.PI / 180;
+      const a1 = (dirIdx * 22.5 - 90 + 11.25) * Math.PI / 180;
+      const x0a = cx + r0 * Math.cos(a0), y0a = cy + r0 * Math.sin(a0);
+      const x0b = cx + r0 * Math.cos(a1), y0b = cy + r0 * Math.sin(a1);
+      const x1a = cx + r1 * Math.cos(a0), y1a = cy + r1 * Math.sin(a0);
+      const x1b = cx + r1 * Math.cos(a1), y1b = cy + r1 * Math.sin(a1);
+      const path = document.createElementNS(NS, 'path');
+      const d = `M ${x0a} ${y0a} L ${x1a} ${y1a} A ${r1} ${r1} 0 0 1 ${x1b} ${y1b} L ${x0b} ${y0b} A ${r0} ${r0} 0 0 0 ${x0a} ${y0a} Z`;
+      path.setAttribute('d', d);
+      path.setAttribute('fill', SPEED_BINS[spdIdx].color);
+      path.setAttribute('opacity', '0.85');
+      path.setAttribute('stroke', '#0a0e14');
+      path.setAttribute('stroke-width', '0.5');
+      svg.appendChild(path);
+      cumFreq += freq;
+    });
+  });
+
+  // Direction labels
+  ['N', 'E', 'S', 'W'].forEach((label, i) => {
+    const ang = (i * 90 - 90) * Math.PI / 180;
+    const x = cx + (rMax + 18) * Math.cos(ang);
+    const y = cy + (rMax + 18) * Math.sin(ang);
+    const txt = document.createElementNS(NS, 'text');
+    txt.setAttribute('x', x);
+    txt.setAttribute('y', y + 4);
+    txt.setAttribute('text-anchor', 'middle');
+    txt.setAttribute('fill', '#94a1b8');
+    txt.setAttribute('font-family', 'IBM Plex Mono, monospace');
+    txt.setAttribute('font-size', '12');
+    txt.setAttribute('font-weight', '600');
+    txt.textContent = label;
+    svg.appendChild(txt);
+  });
+
+  // Prevailing arrow
+  const pAng = (rose.prevailingDeg - 90) * Math.PI / 180;
+  const arrow = document.createElementNS(NS, 'path');
+  const ax = cx + (rMax + 4) * Math.cos(pAng), ay = cy + (rMax + 4) * Math.sin(pAng);
+  const ax2 = cx + 12 * Math.cos(pAng), ay2 = cy + 12 * Math.sin(pAng);
+  arrow.setAttribute('d', `M ${ax} ${ay} L ${ax2} ${ay2}`);
+  arrow.setAttribute('stroke', '#4fd4e6');
+  arrow.setAttribute('stroke-width', '2.5');
+  arrow.setAttribute('marker-end', 'url(#arrowhead)');
+  // arrowhead defs
+  const defs = document.createElementNS(NS, 'defs');
+  defs.innerHTML = `<marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#4fd4e6"/></marker>`;
+  svg.appendChild(defs);
+  svg.appendChild(arrow);
+
+  // Center label
+  const center = document.createElementNS(NS, 'text');
+  center.setAttribute('x', cx);
+  center.setAttribute('y', cy + 4);
+  center.setAttribute('text-anchor', 'middle');
+  center.setAttribute('fill', '#5e6a82');
+  center.setAttribute('font-family', 'IBM Plex Mono, monospace');
+  center.setAttribute('font-size', '10');
+  center.textContent = `${(rose.calmFreq * 100).toFixed(0)}% calm`;
+  svg.appendChild(center);
+
+  // Legend
+  SPEED_BINS.forEach(b => {
+    const item = document.createElement('div');
+    item.innerHTML = `<span class="swatch" style="background:${b.color}"></span>${b.label}`;
+    legend.appendChild(item);
+  });
+}
+
+function renderCompass(a) {
+  const svg = $('#compass-svg');
+  svg.innerHTML = '';
+  if (!a) return;
+  const NS = 'http://www.w3.org/2000/svg';
+  const cx = 120, cy = 120, R = 95;
+
+  // Outer ring
+  const ring = document.createElementNS(NS, 'circle');
+  ring.setAttribute('cx', cx); ring.setAttribute('cy', cy); ring.setAttribute('r', R);
+  ring.setAttribute('fill', '#11161f');
+  ring.setAttribute('stroke', '#2e394e'); ring.setAttribute('stroke-width', '1.5');
+  svg.appendChild(ring);
+
+  // Tick marks every 15°
+  for (let deg = 0; deg < 360; deg += 15) {
+    const major = (deg % 90 === 0);
+    const ang = (deg - 90) * Math.PI / 180;
+    const r1 = R, r2 = major ? R - 12 : R - 6;
+    const x1 = cx + r1 * Math.cos(ang), y1 = cy + r1 * Math.sin(ang);
+    const x2 = cx + r2 * Math.cos(ang), y2 = cy + r2 * Math.sin(ang);
+    const tick = document.createElementNS(NS, 'line');
+    tick.setAttribute('x1', x1); tick.setAttribute('y1', y1);
+    tick.setAttribute('x2', x2); tick.setAttribute('y2', y2);
+    tick.setAttribute('stroke', major ? '#94a1b8' : '#3a4660');
+    tick.setAttribute('stroke-width', major ? '1.5' : '1');
+    svg.appendChild(tick);
+  }
+
+  // Cardinal labels
+  [['N',0],['E',90],['S',180],['W',270]].forEach(([lab, deg]) => {
+    const ang = (deg - 90) * Math.PI / 180;
+    const r = R - 24;
+    const x = cx + r * Math.cos(ang), y = cy + r * Math.sin(ang);
+    const txt = document.createElementNS(NS, 'text');
+    txt.setAttribute('x', x); txt.setAttribute('y', y + 4);
+    txt.setAttribute('text-anchor', 'middle');
+    txt.setAttribute('fill', deg === 0 ? '#ef5a6f' : '#5e6a82');
+    txt.setAttribute('font-family', 'IBM Plex Mono'); txt.setAttribute('font-size', '11');
+    txt.setAttribute('font-weight', '600');
+    txt.textContent = lab;
+    svg.appendChild(txt);
+  });
+
+  // Wind arrow (where wind comes FROM)
+  const windDeg = a.rec.prevailingDeg;
+  const wAng = (windDeg - 90) * Math.PI / 180;
+  const wx1 = cx + (R - 14) * Math.cos(wAng);
+  const wy1 = cy + (R - 14) * Math.sin(wAng);
+  const wx2 = cx + 22 * Math.cos(wAng);
+  const wy2 = cy + 22 * Math.sin(wAng);
+  const wArrow = document.createElementNS(NS, 'line');
+  wArrow.setAttribute('x1', wx1); wArrow.setAttribute('y1', wy1);
+  wArrow.setAttribute('x2', wx2); wArrow.setAttribute('y2', wy2);
+  wArrow.setAttribute('stroke', '#94a1b8'); wArrow.setAttribute('stroke-width', '2');
+  wArrow.setAttribute('marker-end', 'url(#wind-head)');
+  svg.appendChild(wArrow);
+
+  const defs = document.createElementNS(NS, 'defs');
+  defs.innerHTML = `
+    <marker id="wind-head" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#94a1b8"/>
+    </marker>
+    <marker id="fin-head" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4fd4e6"/>
+    </marker>
+  `;
+  svg.appendChild(defs);
+
+  // Recommended fin axis (cyan, bidirectional line through center)
+  const finDeg = a.rec.recommendedAz;
+  const finAng = (finDeg - 90) * Math.PI / 180;
+  const fx1 = cx + (R - 18) * Math.cos(finAng);
+  const fy1 = cy + (R - 18) * Math.sin(finAng);
+  const fx2 = cx - (R - 18) * Math.cos(finAng);
+  const fy2 = cy - (R - 18) * Math.sin(finAng);
+  // Render as a thick bar with fin marks
+  const finLine = document.createElementNS(NS, 'line');
+  finLine.setAttribute('x1', fx1); finLine.setAttribute('y1', fy1);
+  finLine.setAttribute('x2', fx2); finLine.setAttribute('y2', fy2);
+  finLine.setAttribute('stroke', '#4fd4e6');
+  finLine.setAttribute('stroke-width', '4');
+  finLine.setAttribute('stroke-linecap', 'round');
+  svg.appendChild(finLine);
+
+  // Fin marks (perpendicular ticks along the line)
+  const perpAng = finAng + Math.PI / 2;
+  for (let off = -50; off <= 50; off += 12) {
+    const px = cx + off * Math.cos(finAng);
+    const py = cy + off * Math.sin(finAng);
+    const t1x = px + 6 * Math.cos(perpAng), t1y = py + 6 * Math.sin(perpAng);
+    const t2x = px - 6 * Math.cos(perpAng), t2y = py - 6 * Math.sin(perpAng);
+    const fin = document.createElementNS(NS, 'line');
+    fin.setAttribute('x1', t1x); fin.setAttribute('y1', t1y);
+    fin.setAttribute('x2', t2x); fin.setAttribute('y2', t2y);
+    fin.setAttribute('stroke', '#4fd4e6');
+    fin.setAttribute('stroke-width', '1.5');
+    fin.setAttribute('opacity', '0.6');
+    svg.appendChild(fin);
+  }
+
+  // Center dot
+  const dot = document.createElementNS(NS, 'circle');
+  dot.setAttribute('cx', cx); dot.setAttribute('cy', cy); dot.setAttribute('r', '3');
+  dot.setAttribute('fill', '#e6edf7');
+  svg.appendChild(dot);
+
+  // Sector indicator (small dashed arc showing original sector ±45°)
+  const secAng = state.params.sector;
+  const sa1 = (secAng - 45 - 90) * Math.PI / 180;
+  const sa2 = (secAng + 45 - 90) * Math.PI / 180;
+  const arcR = R + 6;
+  const arcX1 = cx + arcR * Math.cos(sa1), arcY1 = cy + arcR * Math.sin(sa1);
+  const arcX2 = cx + arcR * Math.cos(sa2), arcY2 = cy + arcR * Math.sin(sa2);
+  const arc = document.createElementNS(NS, 'path');
+  arc.setAttribute('d', `M ${arcX1} ${arcY1} A ${arcR} ${arcR} 0 0 1 ${arcX2} ${arcY2}`);
+  arc.setAttribute('fill', 'none');
+  arc.setAttribute('stroke', '#5e6a82');
+  arc.setAttribute('stroke-width', '2');
+  arc.setAttribute('stroke-dasharray', '3 3');
+  svg.appendChild(arc);
+}
+
+function renderRecList(a) {
+  const list = $('#rec-list');
+  const alerts = $('#rec-alerts');
+  if (!a) {
+    list.innerHTML = `<li><div class="rec-icon">○</div><div class="rec-body"><div class="rec-label">Pending</div><div class="rec-value">${t('rec.empty')}</div></div></li>`;
+    alerts.innerHTML = '';
+    return;
+  }
+  const r = a.rec;
+  list.innerHTML = `
+    <li>
+      <div class="rec-icon">①</div>
+      <div class="rec-body">
+        <div class="rec-label">${state.lang === 'zh' ? '主導風向 (最熱季)' : 'Prevailing Wind (Hot Season)'}</div>
+        <div class="rec-value">${r.prevailingLabel} · ${r.prevailingDeg.toFixed(0)}° · ${(r.prevailingFreq * 100).toFixed(0)}%</div>
+        <div class="rec-note">${state.lang === 'zh' ? '基於最熱 3 個月的 10 m 高度風頻率分佈' : 'From hottest 3 months @ 10 m'}</div>
+      </div>
+    </li>
+    <li>
+      <div class="rec-icon">②</div>
+      <div class="rec-body">
+        <div class="rec-label">${state.lang === 'zh' ? '建議鰭片走向' : 'Recommended Fin Axis'}</div>
+        <div class="rec-value">${r.finAxisDeg.toFixed(0)}° axis</div>
+        <div class="rec-note">${state.lang === 'zh' ? '鰭片走向應平行於主風向，讓氣流可順暢通過鰭片通道' : 'Fins should be parallel to prevailing wind so airflow passes through the fin channels.'}</div>
+      </div>
+    </li>
+    <li>
+      <div class="rec-icon">③</div>
+      <div class="rec-body">
+        <div class="rec-label">${state.lang === 'zh' ? '機體建議方位 (受扇區約束)' : 'Recommended Unit Azimuth (sector-constrained)'}</div>
+        <div class="rec-value">${r.recommendedAz.toFixed(0)}° ${r.rotationOffset >= 0 ? '+' : ''}${r.rotationOffset}° from sector</div>
+        <div class="rec-note">${state.lang === 'zh'
+          ? `在扇區方位 ${state.params.sector}° ±45° 約束下，與風軸最小夾角 ${r.bestDiff.toFixed(0)}° (對齊度 ${(r.alignmentQuality*100).toFixed(0)}%)`
+          : `Within sector ${state.params.sector}° ±45°, min angle to wind axis = ${r.bestDiff.toFixed(0)}° (alignment ${(r.alignmentQuality*100).toFixed(0)}%)`}</div>
+      </div>
+    </li>
+    <li>
+      <div class="rec-icon">④</div>
+      <div class="rec-body">
+        <div class="rec-label">${state.lang === 'zh' ? '對流模式判定' : 'Convection Mode'}</div>
+        <div class="rec-value">${r.convMode === 'mixed' ? (state.lang === 'zh' ? '混合對流 (自然 + 強制)' : 'Mixed (natural + forced)') : (state.lang === 'zh' ? '純自然對流為設計基準' : 'Natural convection only')}</div>
+        <div class="rec-note">${r.modeNote}</div>
+      </div>
+    </li>
+  `;
+  $('#rec-badge').textContent = r.alignmentQuality > 0.7 ? 'GOOD' : r.alignmentQuality > 0.4 ? 'MODERATE' : 'POOR';
+
+  // Alerts
+  let alertsHtml = '';
+  if (a.tStats.hoursAbove[55] > 0) {
+    alertsHtml += `<div class="alert alert-warn"><span class="icon">⚠</span><span class="msg">${state.lang === 'zh'
+      ? `歷史紀錄顯示每年約 ${(a.tStats.hoursAbove[55] / a.tStats.yearsCovered).toFixed(0)} 小時超過 55°C，傳統設計假設仍有保護必要。`
+      : `Historical data shows ~${(a.tStats.hoursAbove[55] / a.tStats.yearsCovered).toFixed(0)} hours/year above 55°C. The traditional 55°C envelope is still relevant.`}</span></div>`;
+  }
+  if (state.params.shielding < 0.5) {
+    alertsHtml += `<div class="alert alert-error"><span class="icon">!</span><span class="msg">${state.lang === 'zh'
+      ? '嚴重遮蔽會造成風場停滯與熱累積，建議改用導流罩或提高架設位置。'
+      : 'Heavy shielding causes stagnation and heat buildup. Consider air deflectors or raising mount height.'}</span></div>`;
+  }
+  if (a.tStats.p95 < 35) {
+    alertsHtml += `<div class="alert alert-success"><span class="icon">✓</span><span class="msg">${state.lang === 'zh'
+      ? `P95 環境溫度僅 ${a.tStats.p95.toFixed(1)}°C，相較 55°C 設計有 ${(55 - a.tStats.p95).toFixed(0)}K 餘裕，散熱規格有縮減空間。`
+      : `P95 ambient is only ${a.tStats.p95.toFixed(1)}°C — ${(55 - a.tStats.p95).toFixed(0)} K of margin vs the 55°C design. Significant volume reduction possible.`}</span></div>`;
+  }
+  alerts.innerHTML = alertsHtml;
+}
+
+function renderMarginRecovery(a) {
+  if (!a) return;
+  const tjmax = parseFloat($('#margin-tjmax').value);
+  const thetajc = parseFloat($('#margin-thetajc').value);
+  const Q = parseFloat($('#margin-power').value);
+
+  // Original envelope: 55°C, V=0
+  const T_amb_orig = 55;
+  // Required theta_CA (case-to-ambient including TIM + sink) so that Tj = Tj_max
+  // Tj = T_amb + Q*(theta_jc + theta_CA)
+  // theta_CA = (Tj_max - T_amb) / Q - theta_jc
+  const thetaCA_orig = (tjmax - T_amb_orig) / Q - thetajc;
+
+  // Realistic envelope: T_p95 (or hot stats P95), Vh
+  const T_amb_real = a.hotTempStats.p95;
+  const Vh_real = a.vh_hot;
+  const thetaCA_real = (tjmax - T_amb_real) / Q - thetajc;
+
+  // Forced convection rough boost factor
+  // h_forced/h_natural ≈ sqrt(1 + Vh/0.5)
+  const h_boost = Math.sqrt(1 + Vh_real / 0.5);
+  // theta_HS scales as 1/h, so effective thetaCA improvement
+  const thetaCA_real_boosted = thetaCA_real * h_boost;
+  const thetaCA_used_orig = thetaCA_orig; // baseline natural at 55°C/0
+  // The "effective margin" is how much theta_CA is now allowed:
+  // Compared to thetaCA_orig, the heat sink can have higher theta_CA.
+  // But we need to account for: the new MAXIMUM allowed theta_CA (not boosted - that's a saving)
+  // Margin recovered (K equivalent at junction): Q * (thetaCA_real - thetaCA_orig)
+  const tempMargin = T_amb_orig - T_amb_real; // K saved on ambient
+  const thetaMargin = thetaCA_real - thetaCA_orig; // K/W of allowable theta_CA increase
+
+  // Heat sink size reduction estimate (very rough, linear with theta_HS)
+  // If we boost h by h_boost and also have higher allowable thetaCA, we can reduce fin area
+  const sinkSizeRatio = (thetaCA_orig / thetaCA_real) / h_boost;
+  const volumeSaving = Math.max(0, Math.min(0.7, 1 - sinkSizeRatio)); // cap at 70%
+
+  $('#margin-orig-detail').innerHTML = `θ<sub>CA</sub> required = <span class="num">${thetaCA_orig.toFixed(2)}</span> K/W`;
+  $('#margin-realistic-env').innerHTML = `T<sub>amb</sub> = ${T_amb_real.toFixed(1)}°C / V = ${Vh_real.toFixed(2)} m/s`;
+  $('#margin-real-detail').innerHTML = `θ<sub>CA</sub> available = <span class="num">${thetaCA_real.toFixed(2)}</span> K/W (×${h_boost.toFixed(2)} forced boost)`;
+
+  const cls = volumeSaving > 0.4 ? 'alert-success' : volumeSaving > 0.15 ? 'alert-info' : 'alert-warn';
+  const msg = state.lang === 'zh'
+    ? `相較傳統 55°C/0 m/s 假設，本站點實際包絡可回收約 <strong>${tempMargin.toFixed(1)} K</strong> 環境溫度餘裕，
+       加上 ${Vh_real.toFixed(2)} m/s 風速帶來 ×${h_boost.toFixed(2)} 對流增益，
+       <strong>散熱器體積估計可縮減 ${(volumeSaving * 100).toFixed(0)}%</strong>（線性近似，需 CFD 驗證）。`
+    : `Compared to the 55°C/0 m/s envelope, this site recovers <strong>${tempMargin.toFixed(1)} K</strong> of ambient margin.
+       With ${Vh_real.toFixed(2)} m/s wind providing ×${h_boost.toFixed(2)} convection boost,
+       <strong>heat sink volume could be reduced by an estimated ${(volumeSaving * 100).toFixed(0)}%</strong> (linear approximation; CFD verification required).`;
+
+  $('#margin-results').innerHTML = `
+    <div class="alert ${cls}"><span class="icon">Σ</span><span class="msg">${msg}</span></div>
+    <div class="grid grid-3" style="margin-top:14px;">
+      <div class="stat"><div class="stat-label">Ambient ΔT recovered</div><div class="stat-value num">${tempMargin.toFixed(1)}<span class="unit">K</span></div></div>
+      <div class="stat"><div class="stat-label">θ_CA headroom</div><div class="stat-value num">+${thetaMargin.toFixed(2)}<span class="unit">K/W</span></div></div>
+      <div class="stat stat-accent"><div class="stat-label">Est. Volume Reduction</div><div class="stat-value num">${(volumeSaving * 100).toFixed(0)}<span class="unit">%</span></div></div>
+    </div>
+  `;
+}
+
+function renderFieldCard(a) {
+  const div = $('#field-summary');
+  if (!a) return;
+  const r = a.rec;
+  div.innerHTML = `
+    <div class="stat" style="margin-bottom:14px;">
+      <div class="stat-label">${state.lang === 'zh' ? '站點' : 'Site'}</div>
+      <div class="stat-value">${state.location.name}</div>
+      <div class="stat-foot mono">${state.location.lat.toFixed(4)}°, ${state.location.lon.toFixed(4)}°</div>
+    </div>
+    <div class="alert alert-info">
+      <span class="icon">▲</span>
+      <span class="msg">${state.lang === 'zh'
+        ? `<strong>請將機體面向 ${r.recommendedAz.toFixed(0)}°</strong>（指南針方位），讓散熱鰭片走向沿著 ${r.finAxisDeg.toFixed(0)}° / ${(r.finAxisDeg + 180) % 360}° 軸線。`
+        : `<strong>Mount unit facing ${r.recommendedAz.toFixed(0)}°</strong> (compass bearing). Heat sink fins should align with the ${r.finAxisDeg.toFixed(0)}°/${(r.finAxisDeg + 180) % 360}° axis.`}</span>
+    </div>
+    <div class="grid grid-2" style="margin-top:14px;">
+      <div class="stat"><div class="stat-label">${state.lang === 'zh' ? '主風向' : 'Wind From'}</div><div class="stat-value mono">${r.prevailingLabel}</div><div class="stat-foot">${r.prevailingDeg.toFixed(0)}°</div></div>
+      <div class="stat"><div class="stat-label">${state.lang === 'zh' ? '對流模式' : 'Conv. Mode'}</div><div class="stat-value">${r.convMode === 'mixed' ? (state.lang==='zh'?'混合':'Mixed') : (state.lang==='zh'?'自然':'Natural')}</div></div>
+    </div>
+    <p class="help" style="margin-top:12px;">${state.lang === 'zh' ? '使用手機指南針 App 對齊。安裝後請複查機殼鰭片走向與上方建議一致。' : 'Use phone compass app to align. After install, verify fin direction matches the recommendation.'}</p>
+  `;
+
+  // QR code with installation summary
+  $('#qr-container').style.display = 'flex';
+  const qrText = `RRU SITE\n${state.location.name}\nLat: ${state.location.lat.toFixed(4)}\nLon: ${state.location.lon.toFixed(4)}\nFace: ${r.recommendedAz.toFixed(0)}°\nFin axis: ${r.finAxisDeg.toFixed(0)}°\nMode: ${r.convMode}\nP95: ${a.tStats.p95.toFixed(1)}°C`;
+  $('#qrcode').innerHTML = '';
+  new QRCode($('#qrcode'), { text: qrText, width: 160, height: 160, colorDark: '#0a0e14', colorLight: '#ffffff' });
+}
+
+/* =============================================================
+   MULTI-SITE COMPARISON
+   ============================================================= */
+function renderMultiSiteTable() {
+  const wrap = $('#multi-table-wrap');
+  $('#multi-count').textContent = state.savedSites.length;
+  if (state.savedSites.length === 0) {
+    wrap.innerHTML = `<div class="empty-state"><div class="icon">⊟</div><div>${t('multi.empty')}</div></div>`;
+    return;
+  }
+  let html = `<table class="sites-table"><thead><tr>
+    <th>Site</th><th>Coord</th><th class="num">Mean T</th><th class="num">P95 T</th>
+    <th class="num">Max T</th><th class="num">V₁₀</th><th class="num">Vₕ</th>
+    <th>Prevailing</th><th class="num">Vol. Save</th><th></th>
+  </tr></thead><tbody>`;
+  state.savedSites.forEach((s, idx) => {
+    html += `<tr>
+      <td>${s.name}</td>
+      <td class="num">${s.lat.toFixed(2)}, ${s.lon.toFixed(2)}</td>
+      <td class="num">${fmt(s.meanT)}°C</td>
+      <td class="num">${fmt(s.p95T)}°C</td>
+      <td class="num">${fmt(s.maxT)}°C</td>
+      <td class="num">${fmt(s.v10)} m/s</td>
+      <td class="num">${fmt(s.vh)} m/s</td>
+      <td>${s.prevailing}</td>
+      <td class="num">${fmt(s.volSaving * 100, 0)}%</td>
+      <td><button class="btn btn-ghost btn-sm" data-remove="${idx}">×</button></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+  $$('button[data-remove]').forEach(b => b.addEventListener('click', e => {
+    const i = parseInt(e.target.dataset.remove, 10);
+    state.savedSites.splice(i, 1);
+    renderMultiSiteTable();
+  }));
+}
+
+function saveSite() {
+  if (!state.analysis) { toast('Run analysis first', 'error'); return; }
+  const a = state.analysis;
+  const r = a.rec;
+  const tjmax = parseFloat($('#margin-tjmax').value);
+  const thetajc = parseFloat($('#margin-thetajc').value);
+  const Q = parseFloat($('#margin-power').value);
+  const T_amb_real = a.hotTempStats.p95;
+  const thetaCA_orig = (tjmax - 55) / Q - thetajc;
+  const thetaCA_real = (tjmax - T_amb_real) / Q - thetajc;
+  const h_boost = Math.sqrt(1 + a.vh_hot / 0.5);
+  const sinkSizeRatio = (thetaCA_orig / thetaCA_real) / h_boost;
+  const volSaving = Math.max(0, Math.min(0.7, 1 - sinkSizeRatio));
+
+  state.savedSites.push({
+    name: state.location.name,
+    lat: state.location.lat,
+    lon: state.location.lon,
+    meanT: a.tStats.mean,
+    p95T: a.tStats.p95,
+    maxT: a.tStats.max,
+    v10: a.v10mean,
+    vh: a.vh,
+    prevailing: r.prevailingLabel + ' ' + r.prevailingDeg.toFixed(0) + '°',
+    volSaving
+  });
+  renderMultiSiteTable();
+  toast('Site saved: ' + state.location.name, 'success');
+}
+
+function exportCSV() {
+  if (state.savedSites.length === 0) { toast('No sites to export', 'error'); return; }
+  const headers = ['Site', 'Lat', 'Lon', 'Mean Temp (°C)', 'P95 Temp (°C)', 'Max Temp (°C)', 'V10 (m/s)', 'Vh (m/s)', 'Prevailing', 'Vol Saving (%)'];
+  const rows = state.savedSites.map(s => [
+    s.name, s.lat.toFixed(4), s.lon.toFixed(4), s.meanT.toFixed(1),
+    s.p95T.toFixed(1), s.maxT.toFixed(1), s.v10.toFixed(2), s.vh.toFixed(2),
+    s.prevailing, (s.volSaving * 100).toFixed(0)
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `rru-sites-${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV exported', 'success');
+}
+
+/* =============================================================
+   PDF EXPORT
+   ============================================================= */
+async function exportPDF() {
+  if (!state.analysis) { toast('Run analysis first', 'error'); return; }
+  showLoading('Generating PDF report…');
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+    const a = state.analysis;
+    const r = a.rec;
+
+    // Header
+    pdf.setFontSize(16);
+    pdf.setTextColor(20, 30, 50);
+    pdf.text('5G RRU Site Thermal Report', 15, 18);
+    pdf.setFontSize(9);
+    pdf.setTextColor(120);
+    pdf.text(`Generated ${new Date().toISOString().slice(0, 19).replace('T', ' ')} · Powered by Open-Meteo`, 15, 24);
+
+    // Site info
+    pdf.setFontSize(11);
+    pdf.setTextColor(20, 30, 50);
+    let y = 36;
+    pdf.text(`Site: ${state.location.name}`, 15, y); y += 6;
+    pdf.text(`Coordinates: ${state.location.lat.toFixed(4)}°, ${state.location.lon.toFixed(4)}°`, 15, y); y += 6;
+    pdf.text(`Antenna height: ${state.params.height} m | Terrain α=${state.params.alpha} | Shielding ×${state.params.shielding} | Sector ${state.params.sector}°`, 15, y); y += 10;
+
+    // Climate summary
+    pdf.setFontSize(13);
+    pdf.text('Climate Summary (5-yr history)', 15, y); y += 7;
+    pdf.setFontSize(10);
+    const climateData = [
+      ['Annual mean temp', `${a.tStats.mean.toFixed(1)} °C`],
+      ['P95 temp', `${a.tStats.p95.toFixed(1)} °C`],
+      ['Historical max', `${a.tStats.max.toFixed(1)} °C`],
+      ['Hot-season P95 temp', `${a.hotTempStats.p95.toFixed(1)} °C`],
+      ['Mean wind @10 m', `${a.v10mean.toFixed(2)} m/s`],
+      ['Corrected wind @' + state.params.height + 'm', `${a.vh.toFixed(2)} m/s`],
+      ['Hours/yr > 55°C', `${(a.tStats.hoursAbove[55] / a.tStats.yearsCovered).toFixed(0)} h`],
+      ['Hours/yr > 50°C', `${(a.tStats.hoursAbove[50] / a.tStats.yearsCovered).toFixed(0)} h`]
+    ];
+    climateData.forEach(([k, v]) => { pdf.text(`  ${k}: ${v}`, 15, y); y += 5; });
+    y += 5;
+
+    pdf.setFontSize(13);
+    pdf.text('Engineering Recommendations', 15, y); y += 7;
+    pdf.setFontSize(10);
+    pdf.text(`Prevailing wind (hot season): ${r.prevailingLabel} (${r.prevailingDeg.toFixed(0)}°, ${(r.prevailingFreq * 100).toFixed(0)}% freq)`, 15, y); y += 5;
+    pdf.text(`Recommended fin axis: ${r.finAxisDeg.toFixed(0)}°`, 15, y); y += 5;
+    pdf.text(`Recommended unit azimuth: ${r.recommendedAz.toFixed(0)}° (${r.rotationOffset >= 0 ? '+' : ''}${r.rotationOffset}° from sector)`, 15, y); y += 5;
+    pdf.text(`Convection mode: ${r.convMode === 'mixed' ? 'Mixed (natural + forced)' : 'Natural only'}`, 15, y); y += 5;
+    pdf.text(`Alignment quality: ${(r.alignmentQuality * 100).toFixed(0)}% (min angle to wind axis: ${r.bestDiff.toFixed(0)}°)`, 15, y); y += 10;
+
+    // Volume saving
+    const tjmax = parseFloat($('#margin-tjmax').value);
+    const thetajc = parseFloat($('#margin-thetajc').value);
+    const Q = parseFloat($('#margin-power').value);
+    const T_amb_real = a.hotTempStats.p95;
+    const tempMargin = 55 - T_amb_real;
+    const h_boost = Math.sqrt(1 + a.vh_hot / 0.5);
+    const thetaCA_orig = (tjmax - 55) / Q - thetajc;
+    const thetaCA_real = (tjmax - T_amb_real) / Q - thetajc;
+    const sinkSizeRatio = (thetaCA_orig / thetaCA_real) / h_boost;
+    const volSaving = Math.max(0, Math.min(0.7, 1 - sinkSizeRatio));
+
+    pdf.setFontSize(13);
+    pdf.text('Margin Recovery (vs 55°C / 0 m/s envelope)', 15, y); y += 7;
+    pdf.setFontSize(10);
+    pdf.text(`Component: Tj_max=${tjmax}°C, θJC=${thetajc} K/W, Q=${Q} W`, 15, y); y += 5;
+    pdf.text(`Ambient ΔT recovered: ${tempMargin.toFixed(1)} K`, 15, y); y += 5;
+    pdf.text(`Forced convection boost: ×${h_boost.toFixed(2)}`, 15, y); y += 5;
+    pdf.text(`Estimated heat sink volume reduction: ${(volSaving * 100).toFixed(0)}%`, 15, y); y += 10;
+
+    pdf.setFontSize(8);
+    pdf.setTextColor(120);
+    const disclaimer = 'Disclaimer: This is a preliminary site assessment based on Open-Meteo reanalysis data and simplified Power Law wind correction. CFD verification (FloTHERM/Icepak) is still required for final thermal design. Forced convection boost is a rough heuristic.';
+    const lines = pdf.splitTextToSize(disclaimer, 180);
+    pdf.text(lines, 15, y);
+
+    pdf.save(`RRU-thermal-report-${state.location.name.replace(/\s+/g, '_')}-${Date.now()}.pdf`);
+    toast('PDF exported', 'success');
+  } catch (e) {
+    console.error(e);
+    toast('PDF export failed: ' + e.message, 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
+/* =============================================================
+   MAP
+   ============================================================= */
+function initMap() {
+  map = L.map('map', { zoomControl: true, attributionControl: true }).setView([state.location.lat, state.location.lon], 11);
+  // Use CartoDB Dark Matter tiles for engineering dark theme
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap, © CARTO',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
+  setMapMarker(state.location.lat, state.location.lon);
+  map.on('click', (e) => {
+    setMapMarker(e.latlng.lat, e.latlng.lng);
+    state.location.lat = e.latlng.lat;
+    state.location.lon = e.latlng.lng;
+    state.location.name = `${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
+    $('#address-input').value = state.location.name;
+    updateCoordsBadge();
+  });
+}
+
+function setMapMarker(lat, lon) {
+  if (mapMarker) map.removeLayer(mapMarker);
+  const icon = L.divIcon({ className: '', html: '<div class="site-marker"></div>', iconSize: [14, 14], iconAnchor: [7, 7] });
+  mapMarker = L.marker([lat, lon], { icon }).addTo(map);
+  map.setView([lat, lon], Math.max(map.getZoom(), 11));
+}
+
+function updateCoordsBadge() {
+  $('#coords-badge').textContent = `${state.location.lat.toFixed(4)}° · ${state.location.lon.toFixed(4)}°`;
+}
+
+/* =============================================================
+   I18N & ROLE
+   ============================================================= */
+function applyI18n() {
+  $$('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if (I18N[state.lang][key]) el.textContent = I18N[state.lang][key];
+  });
+  document.documentElement.lang = state.lang === 'zh' ? 'zh-TW' : 'en';
+}
+
+function setRole(role) {
+  state.role = role;
+  document.body.dataset.role = role;
+  $$('#role-switch button').forEach(b => b.classList.toggle('active', b.dataset.role === role));
+  // Field role: refresh map size
+  setTimeout(() => { if (map) map.invalidateSize(); }, 50);
+}
+
+function setLang(lang) {
+  state.lang = lang;
+  $$('#lang-switch button').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  applyI18n();
+  // Re-render dynamic content
+  if (state.analysis) {
+    renderSummaryCards(state.analysis);
+    renderRecList(state.analysis);
+    renderMarginRecovery(state.analysis);
+    renderFieldCard(state.analysis);
+  }
+}
+
+/* =============================================================
+   MAIN ACTION
+   ============================================================= */
+async function searchAndLoad() {
+  const q = $('#address-input').value.trim();
+  if (!q) { toast('Please enter an address', 'error'); return; }
+  showLoading('Geocoding address…');
+  try {
+    const geo = await geocodeAddress(q);
+    state.location = geo;
+    setMapMarker(geo.lat, geo.lon);
+    map.setView([geo.lat, geo.lon], 11);
+    updateCoordsBadge();
+    toast(`Found: ${geo.name}`, 'success');
+
+    showLoading('Fetching 5-year climate history…');
+    const climate = await fetchHistoricalClimate(geo.lat, geo.lon);
+    state.climate = climate;
+    toast('Climate data loaded', 'success');
+
+    runFullAnalysis();
+  } catch (e) {
+    console.error(e);
+    toast('Error: ' + e.message, 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function loadPreset(key) {
+  const p = PRESETS[key];
+  if (!p) return;
+  state.location = { lat: p.lat, lon: p.lon, name: p.name };
+  $('#address-input').value = p.name;
+  setMapMarker(p.lat, p.lon);
+  map.setView([p.lat, p.lon], 11);
+  updateCoordsBadge();
+  showLoading('Fetching climate for ' + p.name + '…');
+  try {
+    state.climate = await fetchHistoricalClimate(p.lat, p.lon);
+    runFullAnalysis();
+    toast('Loaded: ' + p.name, 'success');
+  } catch (e) {
+    toast('Failed: ' + e.message, 'error');
+  } finally { hideLoading(); }
+}
+
+function runFullAnalysis() {
+  // Read params
+  state.params.height = parseFloat($('#param-height').value);
+  state.params.alpha = parseFloat($('#param-terrain').value);
+  state.params.shielding = parseFloat($('#param-shielding').value);
+  state.params.sector = parseFloat($('#param-sector').value);
+
+  if (!state.climate) { toast('Load climate data first', 'error'); return; }
+  state.analysis = runAnalysis();
+  renderSummaryCards(state.analysis);
+  renderTempChart(state.analysis);
+  renderWindRose(state.analysis);
+  renderCompass(state.analysis);
+  renderRecList(state.analysis);
+  renderMarginRecovery(state.analysis);
+  renderFieldCard(state.analysis);
+}
+
+/* =============================================================
+   EVENT HANDLERS
+   ============================================================= */
+function setupEvents() {
+  $('#search-btn').addEventListener('click', searchAndLoad);
+  $('#address-input').addEventListener('keydown', e => { if (e.key === 'Enter') searchAndLoad(); });
+  $('#run-btn').addEventListener('click', () => {
+    if (!state.climate) { toast('Load climate data first', 'error'); return; }
+    runFullAnalysis();
+  });
+  $('#save-site-btn').addEventListener('click', saveSite);
+  $('#export-pdf-btn').addEventListener('click', exportPDF);
+  $('#export-csv-btn').addEventListener('click', exportCSV);
+  $('#clear-sites-btn').addEventListener('click', () => { state.savedSites = []; renderMultiSiteTable(); });
+
+  $('#locate-btn').addEventListener('click', () => {
+    if (!navigator.geolocation) { toast('Geolocation not supported', 'error'); return; }
+    showLoading('Getting your location…');
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        hideLoading();
+        const { latitude, longitude } = pos.coords;
+        state.location = { lat: latitude, lon: longitude, name: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` };
+        $('#address-input').value = state.location.name;
+        setMapMarker(latitude, longitude);
+        map.setView([latitude, longitude], 13);
+        updateCoordsBadge();
+        toast('Location acquired', 'success');
+      },
+      err => { hideLoading(); toast('Location error: ' + err.message, 'error'); }
+    );
+  });
+
+  $$('#presets-row .preset-chip').forEach(btn => {
+    btn.addEventListener('click', () => loadPreset(btn.dataset.preset));
+  });
+
+  $$('#role-switch button').forEach(btn => btn.addEventListener('click', () => setRole(btn.dataset.role)));
+  $$('#lang-switch button').forEach(btn => btn.addEventListener('click', () => setLang(btn.dataset.lang)));
+
+  // Margin inputs live-update
+  ['#margin-tjmax', '#margin-thetajc', '#margin-power'].forEach(sel => {
+    $(sel).addEventListener('input', () => { if (state.analysis) renderMarginRecovery(state.analysis); });
+  });
+
+  // Param changes don't auto-recompute (would be expensive); user must press Run
+}
+
+/* =============================================================
+   INIT
+   ============================================================= */
+document.addEventListener('DOMContentLoaded', () => {
+  applyI18n();
+  initMap();
+  updateCoordsBadge();
+  setupEvents();
+  renderMultiSiteTable();
+  // Auto-load Taipei preset on first visit for instant demo
+  setTimeout(() => loadPreset('taipei'), 600);
+});
+</script>
+
+</body>
+</html>
