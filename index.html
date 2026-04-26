@@ -1622,7 +1622,7 @@ function renderSummaryCards(a) {
   if (zh) {
     capt.innerHTML = `<strong>計算流程：</strong>
     抓取 Open-Meteo 近 ${yrs} 年、資料期間 ${a.period.start} → ${a.period.end} 的逐時氣候資料 →
-    統計 2 m 氣溫的平均、P50、P95、最高值與超過 50/55°C 的時數 →
+    統計 2 m 氣溫（離地 2 m 高度處空氣溫度，氣象標準觀測高度，ERA5 變數 <code>temperature_2m</code>）的平均、P50、P95、最高值與超過 50/55°C 的時數 →
     將 10 m 風速過濾靜風（<0.5 m/s）後取算術平均 V<sub>10</sub> →
     以 Power Law 修正至安裝高度 h = ${state.params.height} m：
     <code>V<sub>h</sub> = V<sub>10</sub> × (h/10)<sup>α</sup> × s<sub>shield</sub></code>
@@ -1630,7 +1630,7 @@ function renderSummaryCards(a) {
   } else {
     capt.innerHTML = `<strong>Calculation flow:</strong>
     Fetch ${yrs} years of hourly Open-Meteo data (${a.period.start} → ${a.period.end}) →
-    compute mean, P50, P95, max of 2 m temperature and hours above 50/55°C →
+    compute mean, P50, P95, max of 2 m temperature (air temperature at 2 m above ground level, standard meteorological observation height, ERA5 variable <code>temperature_2m</code>) and hours above 50/55°C →
     filter 10 m winds below 0.5 m/s (calm) and take the arithmetic mean V<sub>10</sub> →
     apply Power Law correction to installation height h = ${state.params.height} m:
     <code>V<sub>h</sub> = V<sub>10</sub> × (h/10)<sup>α</sup> × s<sub>shield</sub></code>
