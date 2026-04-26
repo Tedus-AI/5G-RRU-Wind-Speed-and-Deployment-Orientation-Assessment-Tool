@@ -1822,14 +1822,15 @@ function renderWindRose(a) {
     });
   });
 
-  // Direction labels
-  ['N', 'E', 'S', 'W'].forEach((label, i) => {
+  // Direction labels with degree
+  [['N','0°'], ['E','90°'], ['S','180°'], ['W','270°']].forEach(([label, degLabel], i) => {
     const ang = (i * 90 - 90) * Math.PI / 180;
     const x = cx + (rMax + 18) * Math.cos(ang);
     const y = cy + (rMax + 18) * Math.sin(ang);
+    // Cardinal letter
     const txt = document.createElementNS(NS, 'text');
     txt.setAttribute('x', x);
-    txt.setAttribute('y', y + 4);
+    txt.setAttribute('y', y + (i === 2 ? 0 : 4));  // S label: shift up slightly to make room for degree below
     txt.setAttribute('text-anchor', 'middle');
     txt.setAttribute('fill', '#94a1b8');
     txt.setAttribute('font-family', 'IBM Plex Mono, monospace');
@@ -1837,6 +1838,16 @@ function renderWindRose(a) {
     txt.setAttribute('font-weight', '600');
     txt.textContent = label;
     svg.appendChild(txt);
+    // Degree sub-label
+    const sub = document.createElementNS(NS, 'text');
+    sub.setAttribute('x', x);
+    sub.setAttribute('y', y + (i === 0 ? -8 : i === 2 ? 14 : 16));  // N: above letter; S/E/W: below
+    sub.setAttribute('text-anchor', 'middle');
+    sub.setAttribute('fill', '#5e6a82');
+    sub.setAttribute('font-family', 'IBM Plex Mono, monospace');
+    sub.setAttribute('font-size', '9');
+    sub.textContent = degLabel;
+    svg.appendChild(sub);
   });
 
   // Prevailing arrow — starts outside outer ring, ends just outside calm circle (r=26 + gap)
@@ -1944,19 +1955,30 @@ function renderCompass(a) {
     svg.appendChild(tick);
   }
 
-  // Cardinal labels
+  // Cardinal labels with degree
   [['N',0],['E',90],['S',180],['W',270]].forEach(([lab, deg]) => {
     const ang = (deg - 90) * Math.PI / 180;
     const r = R - 24;
     const x = cx + r * Math.cos(ang), y = cy + r * Math.sin(ang);
+    // Cardinal letter
     const txt = document.createElementNS(NS, 'text');
-    txt.setAttribute('x', x); txt.setAttribute('y', y + 4);
+    txt.setAttribute('x', x); txt.setAttribute('y', y + (deg === 180 ? 0 : 4));
     txt.setAttribute('text-anchor', 'middle');
     txt.setAttribute('fill', deg === 0 ? '#ef5a6f' : '#5e6a82');
     txt.setAttribute('font-family', 'IBM Plex Mono'); txt.setAttribute('font-size', '11');
     txt.setAttribute('font-weight', '600');
     txt.textContent = lab;
     svg.appendChild(txt);
+    // Degree sub-label
+    const sub = document.createElementNS(NS, 'text');
+    sub.setAttribute('x', x);
+    sub.setAttribute('y', y + (deg === 0 ? -8 : deg === 180 ? 14 : 16));
+    sub.setAttribute('text-anchor', 'middle');
+    sub.setAttribute('fill', deg === 0 ? '#ef5a6f' : '#5e6a82');
+    sub.setAttribute('font-family', 'IBM Plex Mono'); sub.setAttribute('font-size', '8');
+    sub.setAttribute('opacity', '0.7');
+    sub.textContent = deg + '°';
+    svg.appendChild(sub);
   });
 
   // Wind arrow (where wind comes FROM)
