@@ -794,7 +794,7 @@
 
     <div class="grid grid-asym">
       <div class="compass-wrap">
-        <svg class="compass-svg" id="compass-svg" viewBox="0 0 240 240"></svg>
+        <svg class="compass-svg" id="compass-svg" viewBox="-10 -10 260 260"></svg>
         <div class="stat-label" data-i18n="rec.compass">FIN ORIENTATION COMPASS</div>
       </div>
       <div>
@@ -1955,26 +1955,26 @@ function renderCompass(a) {
     svg.appendChild(tick);
   }
 
-  // Cardinal labels with degree
+  // Cardinal labels with degree — OUTSIDE the ring
   [['N',0],['E',90],['S',180],['W',270]].forEach(([lab, deg]) => {
     const ang = (deg - 90) * Math.PI / 180;
-    const r = R - 24;
-    const x = cx + r * Math.cos(ang), y = cy + r * Math.sin(ang);
+    const rLabel = R + 20;  // outside the ring
+    const x = cx + rLabel * Math.cos(ang), y = cy + rLabel * Math.sin(ang);
     // Cardinal letter
     const txt = document.createElementNS(NS, 'text');
-    txt.setAttribute('x', x); txt.setAttribute('y', y + (deg === 180 ? 0 : 4));
+    txt.setAttribute('x', x); txt.setAttribute('y', y + 4);
     txt.setAttribute('text-anchor', 'middle');
-    txt.setAttribute('fill', deg === 0 ? '#ef5a6f' : '#5e6a82');
+    txt.setAttribute('fill', deg === 0 ? '#ef5a6f' : '#8592ac');
     txt.setAttribute('font-family', 'IBM Plex Mono'); txt.setAttribute('font-size', '11');
     txt.setAttribute('font-weight', '600');
     txt.textContent = lab;
     svg.appendChild(txt);
-    // Degree sub-label
+    // Degree sub-label — below for N/S, to the side for E/W
     const sub = document.createElementNS(NS, 'text');
     sub.setAttribute('x', x);
-    sub.setAttribute('y', y + (deg === 0 ? -8 : deg === 180 ? 14 : 16));
+    sub.setAttribute('y', deg === 0 ? y - 6 : y + 14);
     sub.setAttribute('text-anchor', 'middle');
-    sub.setAttribute('fill', deg === 0 ? '#ef5a6f' : '#5e6a82');
+    sub.setAttribute('fill', deg === 0 ? '#ef5a6f' : '#8592ac');
     sub.setAttribute('font-family', 'IBM Plex Mono'); sub.setAttribute('font-size', '8');
     sub.setAttribute('opacity', '0.7');
     sub.textContent = deg + '°';
@@ -1986,8 +1986,8 @@ function renderCompass(a) {
   const wAng = (windDeg - 90) * Math.PI / 180;
   const wx1 = cx + (R - 14) * Math.cos(wAng);
   const wy1 = cy + (R - 14) * Math.sin(wAng);
-  const wx2 = cx + 22 * Math.cos(wAng);
-  const wy2 = cy + 22 * Math.sin(wAng);
+  const wx2 = cx + 18 * Math.cos(wAng);
+  const wy2 = cy + 18 * Math.sin(wAng);
   const wArrow = document.createElementNS(NS, 'line');
   wArrow.setAttribute('x1', wx1); wArrow.setAttribute('y1', wy1);
   wArrow.setAttribute('x2', wx2); wArrow.setAttribute('y2', wy2);
@@ -2014,10 +2014,10 @@ function renderCompass(a) {
   // In this local coordinate system: +Y = antenna face direction (before rotation, pointing down)
   // We draw the RRU icon pointing UP (antenna at top, fins at bottom), then rotate
 
-  const bodyW = 28, bodyH = 40;  // RRU body width × height
-  const antH = 6;   // antenna strip height
-  const finW = 2.5, finH = 10, finGap = 4.5;  // individual fin dimensions
-  const finCount = 7;
+  const bodyW = 10, bodyH = 18;  // RRU body width × height (compact)
+  const antH = 4;   // antenna strip height
+  const finW = 1.2, finH = 6, finGap = 2;  // individual fin dimensions
+  const finCount = 5;
 
   // Main body (blue rectangle, rounded top)
   const body = document.createElementNS(NS, 'rect');
@@ -2053,7 +2053,7 @@ function renderCompass(a) {
   const secAng = state.params.sector;
   const sa1 = (secAng - 45 - 90) * Math.PI / 180;
   const sa2 = (secAng + 45 - 90) * Math.PI / 180;
-  const arcR = R + 6;
+  const arcR = R + 8;
   const arcX1 = cx + arcR * Math.cos(sa1), arcY1 = cy + arcR * Math.sin(sa1);
   const arcX2 = cx + arcR * Math.cos(sa2), arcY2 = cy + arcR * Math.sin(sa2);
   const arc = document.createElementNS(NS, 'path');
