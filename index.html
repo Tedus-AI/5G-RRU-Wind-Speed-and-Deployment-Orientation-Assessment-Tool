@@ -2137,6 +2137,16 @@ function renderRecList(a) {
       backdrop-filter:none;opacity:1;`;
     const tooltipContent = state.lang === 'zh'
       ? `<div style="font-weight:600;margin-bottom:8px;color:${color};">鰭片方向對齊度 = ${(q*100).toFixed(0)}%（與風軸夾角 ${r.bestDiff.toFixed(0)}°）</div>
+         <div style="margin-bottom:8px;padding:8px 10px;background:rgba(255,255,255,0.04);border-radius:6px;font-size:11px;line-height:1.8;">
+           <div style="font-weight:600;margin-bottom:4px;">計算公式：</div>
+           <div style="font-family:var(--font-mono);color:var(--accent);">對齊度 = max(0, 1 − 夾角 / 45°) × 100%</div>
+           <div style="margin-top:6px;color:var(--text-secondary);">
+             <b>夾角</b>：在天線扇區 ±45° 旋轉範圍內，能找到的鰭片通道方向與主導風軸之間的最小角度差。<br>
+             <b>45°</b> 為分母：因為扇區約束允許 ±45° 旋轉，且風軸具雙向性（檢查 0° 和 180° 兩端），所以數學上最大偏差就是 45°。<br>
+             <b>100%</b> = 夾角 0°，鰭片完全平行風向，氣流直穿鰭片通道。<br>
+             <b>0%</b> = 夾角 45°，已用盡所有旋轉餘裕仍無法改善，風以 45° 斜角進入鰭片通道，強制對流效率大幅下降。
+           </div>
+         </div>
          <div style="margin-bottom:6px;">評級標準：</div>
          <div style="padding-left:8px;">
            <span style="color:var(--success);">■</span> <b>佳 GOOD</b>：對齊度 &gt; 70%（夾角 &lt; 13.5°）<br>
@@ -2148,6 +2158,16 @@ function renderRecList(a) {
            POOR 情況下建議純以自然對流為散熱設計基準，風為額外 bonus。
          </div>`
       : `<div style="font-weight:600;margin-bottom:8px;color:${color};">Fin-to-wind alignment = ${(q*100).toFixed(0)}% (angle ${r.bestDiff.toFixed(0)}° off wind axis)</div>
+         <div style="margin-bottom:8px;padding:8px 10px;background:rgba(255,255,255,0.04);border-radius:6px;font-size:11px;line-height:1.8;">
+           <div style="font-weight:600;margin-bottom:4px;">Formula:</div>
+           <div style="font-family:var(--font-mono);color:var(--accent);">Alignment = max(0, 1 − angle / 45°) × 100%</div>
+           <div style="margin-top:6px;color:var(--text-secondary);">
+             <b>Angle</b>: minimum angular difference between fin channel direction and prevailing wind axis, within the sector ±45° rotation range.<br>
+             <b>45°</b> denominator: sector constraint allows ±45° rotation, and the wind axis is bidirectional (both 0° and 180° ends checked), so 45° is the mathematical worst case.<br>
+             <b>100%</b> = 0° off, fins perfectly parallel to wind, airflow passes straight through fin channels.<br>
+             <b>0%</b> = 45° off, all rotation freedom exhausted, wind enters fins at 45° angle, forced convection efficiency significantly reduced.
+           </div>
+         </div>
          <div style="margin-bottom:6px;">Grading:</div>
          <div style="padding-left:8px;">
            <span style="color:var(--success);">■</span> <b>GOOD</b>: &gt; 70% (&lt; 13.5° off)<br>
