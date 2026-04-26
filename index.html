@@ -1035,7 +1035,7 @@ const I18N = {
     'chart.wind': '風玫瑰圖 (10 m 高度)',
     'rec.title': '工程建議',
     'rec.empty': '執行分析以查看建議',
-    'rec.compass': '鰭片方向羅盤',
+    'rec.compass': '鰭片／天線 方向羅盤',
     'margin.title': '散熱餘裕回收 — 體積節省估算',
     'margin.tjmax': '元件 Tj_max (°C)',
     'margin.tjmax.help': '關鍵元件接面最高允許溫度，例如 FPGA / GaN PA',
@@ -1090,7 +1090,7 @@ const I18N = {
     'chart.wind': 'WIND ROSE (10 m HEIGHT)',
     'rec.title': 'Engineering Recommendations',
     'rec.empty': 'Run analysis to see recommendations',
-    'rec.compass': 'Fin Orientation Compass',
+    'rec.compass': 'Fin / Antenna Compass',
     'margin.title': 'Thermal Margin Recovery — Volume Saving Estimator',
     'margin.tjmax': 'Component Tj_max (°C)',
     'margin.tjmax.help': 'Maximum allowable junction temperature (e.g. FPGA / GaN PA)',
@@ -2006,45 +2006,50 @@ function renderCompass(a) {
   `;
   svg.appendChild(defs);
 
-  // Recommended fin axis (cyan, bidirectional line through center)
+  // RRU icon at center — rotated to match recommendedAz
+  // Antenna face (yellow) points toward recommendedAz; fins (cyan) on the back
   const finDeg = a.rec.recommendedAz;
-  const finAng = (finDeg - 90) * Math.PI / 180;
-  const fx1 = cx + (R - 18) * Math.cos(finAng);
-  const fy1 = cy + (R - 18) * Math.sin(finAng);
-  const fx2 = cx - (R - 18) * Math.cos(finAng);
-  const fy2 = cy - (R - 18) * Math.sin(finAng);
-  // Render as a thick bar with fin marks
-  const finLine = document.createElementNS(NS, 'line');
-  finLine.setAttribute('x1', fx1); finLine.setAttribute('y1', fy1);
-  finLine.setAttribute('x2', fx2); finLine.setAttribute('y2', fy2);
-  finLine.setAttribute('stroke', '#4fd4e6');
-  finLine.setAttribute('stroke-width', '4');
-  finLine.setAttribute('stroke-linecap', 'round');
-  svg.appendChild(finLine);
+  const rruGroup = document.createElementNS(NS, 'g');
+  rruGroup.setAttribute('transform', `translate(${cx},${cy}) rotate(${finDeg})`);
+  // In this local coordinate system: +Y = antenna face direction (before rotation, pointing down)
+  // We draw the RRU icon pointing UP (antenna at top, fins at bottom), then rotate
 
-  // Fin marks (perpendicular ticks along the line)
-  const perpAng = finAng + Math.PI / 2;
-  for (let off = -50; off <= 50; off += 12) {
-    const px = cx + off * Math.cos(finAng);
-    const py = cy + off * Math.sin(finAng);
-    const t1x = px + 6 * Math.cos(perpAng), t1y = py + 6 * Math.sin(perpAng);
-    const t2x = px - 6 * Math.cos(perpAng), t2y = py - 6 * Math.sin(perpAng);
-    const fin = document.createElementNS(NS, 'line');
-    fin.setAttribute('x1', t1x); fin.setAttribute('y1', t1y);
-    fin.setAttribute('x2', t2x); fin.setAttribute('y2', t2y);
-    fin.setAttribute('stroke', '#4fd4e6');
-    fin.setAttribute('stroke-width', '1.5');
-    fin.setAttribute('opacity', '0.6');
-    svg.appendChild(fin);
+  const bodyW = 28, bodyH = 40;  // RRU body width × height
+  const antH = 6;   // antenna strip height
+  const finW = 2.5, finH = 10, finGap = 4.5;  // individual fin dimensions
+  const finCount = 7;
+
+  // Main body (blue rectangle, rounded top)
+  const body = document.createElementNS(NS, 'rect');
+  body.setAttribute('x', -bodyW / 2); body.setAttribute('y', -bodyH / 2);
+  body.setAttribute('width', bodyW); body.setAttribute('height', bodyH);
+  body.setAttribute('rx', '4'); body.setAttribute('ry', '4');
+  body.setAttribute('fill', '#4a90c4'); body.setAttribute('opacity', '0.9');
+  rruGroup.appendChild(body);
+
+  // Antenna face strip (yellow bar at top = antenna direction)
+  const ant = document.createElementNS(NS, 'rect');
+  ant.setAttribute('x', -bodyW / 2 + 2); ant.setAttribute('y', -bodyH / 2 + 1);
+  ant.setAttribute('width', bodyW - 4); ant.setAttribute('height', antH);
+  ant.setAttribute('rx', '2'); ant.setAttribute('ry', '2');
+  ant.setAttribute('fill', '#f0b429');
+  rruGroup.appendChild(ant);
+
+  // Fins (cyan teeth extending from bottom of body)
+  const finsStartX = -(finCount - 1) * finGap / 2;
+  for (let i = 0; i < finCount; i++) {
+    const fx = finsStartX + i * finGap;
+    const fin = document.createElementNS(NS, 'rect');
+    fin.setAttribute('x', fx - finW / 2); fin.setAttribute('y', bodyH / 2 - 1);
+    fin.setAttribute('width', finW); fin.setAttribute('height', finH);
+    fin.setAttribute('rx', '0.5');
+    fin.setAttribute('fill', '#4fd4e6'); fin.setAttribute('opacity', '0.85');
+    rruGroup.appendChild(fin);
   }
 
-  // Center dot
-  const dot = document.createElementNS(NS, 'circle');
-  dot.setAttribute('cx', cx); dot.setAttribute('cy', cy); dot.setAttribute('r', '3');
-  dot.setAttribute('fill', '#e6edf7');
-  svg.appendChild(dot);
+  svg.appendChild(rruGroup);
 
-  // Sector indicator (small dashed arc showing original sector ±45°)
+  // Sector indicator (dashed arc showing original sector ±45°) — YELLOW for antenna
   const secAng = state.params.sector;
   const sa1 = (secAng - 45 - 90) * Math.PI / 180;
   const sa2 = (secAng + 45 - 90) * Math.PI / 180;
@@ -2054,10 +2059,24 @@ function renderCompass(a) {
   const arc = document.createElementNS(NS, 'path');
   arc.setAttribute('d', `M ${arcX1} ${arcY1} A ${arcR} ${arcR} 0 0 1 ${arcX2} ${arcY2}`);
   arc.setAttribute('fill', 'none');
-  arc.setAttribute('stroke', '#5e6a82');
-  arc.setAttribute('stroke-width', '2');
-  arc.setAttribute('stroke-dasharray', '3 3');
+  arc.setAttribute('stroke', '#f0b429');
+  arc.setAttribute('stroke-width', '2.5');
+  arc.setAttribute('stroke-dasharray', '4 3');
   svg.appendChild(arc);
+
+  // Legend below compass
+  const compassWrap = svg.parentElement;
+  let legendEl = compassWrap.querySelector('.compass-legend');
+  if (legendEl) legendEl.remove();
+  legendEl = document.createElement('div');
+  legendEl.className = 'compass-legend';
+  legendEl.style.cssText = 'display:flex;gap:16px;justify-content:center;margin-top:6px;font-size:10px;color:var(--text-secondary);';
+  legendEl.innerHTML = `
+    <span><span style="display:inline-block;width:16px;height:2px;background:#f0b429;border-top:2px dashed #f0b429;vertical-align:middle;margin-right:4px;"></span>${state.lang === 'zh' ? '天線扇區 ±45°' : 'Antenna sector ±45°'}</span>
+    <span><span style="display:inline-block;width:16px;height:3px;background:#4fd4e6;vertical-align:middle;margin-right:4px;border-radius:1px;"></span>${state.lang === 'zh' ? '鰭片（散熱面）' : 'Fins (heat sink)'}</span>
+    <span><span style="display:inline-block;width:16px;height:3px;background:#94a1b8;vertical-align:middle;margin-right:4px;"></span>${state.lang === 'zh' ? '主風來向' : 'Wind from'}</span>
+  `;
+  compassWrap.appendChild(legendEl);
 }
 
 function renderRecList(a) {
