@@ -725,6 +725,8 @@
           <option value="0.4" data-i18n="shield.heavy">多向遮蔽 (×0.4)</option>
           <option value="0.2" data-i18n="shield.severe">嚴重遮蔽 / 凹角 (×0.2)</option>
         </select>
+        <div id="shield-suggest" style="display:none;margin-top:4px;padding:6px 10px;border-radius:6px;background:rgba(79,212,230,0.08);border:1px solid rgba(79,212,230,0.25);font-size:11px;line-height:1.5;color:var(--text-secondary);cursor:pointer;" title="Click to apply">
+        </div>
         <p class="help" data-i18n="params.shielding.help">5 m 內遮蔽物造成的風速折減</p>
       </div>
 
@@ -1313,6 +1315,89 @@ function percentile(sorted, p) {
   const lo = Math.floor(idx), hi = Math.ceil(idx);
   if (lo === hi) return sorted[lo];
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+}
+
+/* =============================================================
+   BUILDING DENSITY → SHIELDING SUGGESTION (Overpass API)
+   ============================================================= */
+async function fetchBuildingDensity(lat, lon, radius = 200) {
+  // Query Overpass API for building footprints within radius meters
+  const query = `[out:json][timeout:15];way["building"](around:${radius},${lat},${lon});out ids geom;`;
+  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Overpass API error');
+    const data = await res.json();
+    const buildings = data.elements || [];
+    if (buildings.length === 0) return { density: 0, count: 0, radius };
+
+    // Calculate total building footprint area using Shoelace formula (approximate m²)
+    let totalArea = 0;
+    buildings.forEach(b => {
+      if (!b.geometry || b.geometry.length < 3) return;
+      const coords = b.geometry;
+      // Convert lat/lon to approximate meters relative to centroid
+      const cosLat = Math.cos(lat * Math.PI / 180);
+      let area = 0;
+      for (let i = 0; i < coords.length; i++) {
+        const j = (i + 1) % coords.length;
+        const xi = (coords[i].lon - lon) * 111320 * cosLat;
+        const yi = (coords[i].lat - lat) * 110540;
+        const xj = (coords[j].lon - lon) * 111320 * cosLat;
+        const yj = (coords[j].lat - lat) * 110540;
+        area += xi * yj - xj * yi;
+      }
+      totalArea += Math.abs(area) / 2;
+    });
+
+    const circleArea = Math.PI * radius * radius;
+    const density = totalArea / circleArea;
+    return { density: Math.min(density, 1), count: buildings.length, radius, totalArea: Math.round(totalArea) };
+  } catch (e) {
+    console.warn('Building density fetch failed:', e);
+    return null;
+  }
+}
+
+function suggestShielding(densityResult) {
+  const el = $('#shield-suggest');
+  if (!densityResult || densityResult.density === undefined) {
+    el.style.display = 'none';
+    return;
+  }
+  const d = densityResult.density;
+  const pct = (d * 100).toFixed(0);
+  let suggestedVal, suggestedLabel;
+  if (d < 0.10) {
+    suggestedVal = '1.0'; suggestedLabel = state.lang === 'zh' ? '無遮蔽 (×1.0)' : 'None (×1.0)';
+  } else if (d < 0.25) {
+    suggestedVal = '0.7'; suggestedLabel = state.lang === 'zh' ? '單向遮蔽 (×0.7)' : 'Partial (×0.7)';
+  } else if (d < 0.45) {
+    suggestedVal = '0.4'; suggestedLabel = state.lang === 'zh' ? '多向遮蔽 (×0.4)' : 'Heavy (×0.4)';
+  } else {
+    suggestedVal = '0.2'; suggestedLabel = state.lang === 'zh' ? '嚴重遮蔽 (×0.2)' : 'Severe (×0.2)';
+  }
+
+  el.style.display = 'block';
+  el.innerHTML = state.lang === 'zh'
+    ? `<span style="color:var(--accent);font-weight:600;">OSM 建築密度分析</span><br>
+       半徑 ${densityResult.radius} m 內偵測到 <b>${densityResult.count}</b> 棟建築，覆蓋率 <b>${pct}%</b><br>
+       <span style="margin-top:4px;display:inline-block;padding:2px 8px;background:rgba(79,212,230,0.15);border-radius:4px;color:var(--accent);font-weight:600;">
+       建議：${suggestedLabel}</span> <span style="opacity:0.6;">（點擊套用）</span>`
+    : `<span style="color:var(--accent);font-weight:600;">OSM Building Density</span><br>
+       Detected <b>${densityResult.count}</b> buildings within ${densityResult.radius} m, coverage <b>${pct}%</b><br>
+       <span style="margin-top:4px;display:inline-block;padding:2px 8px;background:rgba(79,212,230,0.15);border-radius:4px;color:var(--accent);font-weight:600;">
+       Suggested: ${suggestedLabel}</span> <span style="opacity:0.6;">(click to apply)</span>`;
+
+  el.onclick = () => {
+    $('#param-shielding').value = suggestedVal;
+    state.params.shielding = parseFloat(suggestedVal);
+    el.style.borderColor = 'var(--success)';
+    el.style.background = 'rgba(52,211,153,0.08)';
+    const applied = state.lang === 'zh' ? '✓ 已套用' : '✓ Applied';
+    el.querySelector('span:last-child').innerHTML = `<span style="color:var(--success);">${applied}</span>`;
+    if (state.climate) runFullAnalysis();
+  };
 }
 
 function temperatureStats(temps) {
@@ -2635,9 +2720,16 @@ async function searchAndLoad() {
     toast(`Found: ${geo.name}`, 'success');
 
     showLoading('Fetching 5-year climate history…');
-    const climate = await fetchHistoricalClimate(geo.lat, geo.lon);
+    // Fetch climate data and building density in parallel
+    const [climate, buildingDensity] = await Promise.all([
+      fetchHistoricalClimate(geo.lat, geo.lon),
+      fetchBuildingDensity(geo.lat, geo.lon, 200).catch(() => null)
+    ]);
     state.climate = climate;
     toast('Climate data loaded', 'success');
+
+    // Show building density suggestion (non-blocking)
+    suggestShielding(buildingDensity);
 
     runFullAnalysis();
   } catch (e) {
@@ -2658,7 +2750,12 @@ async function loadPreset(key) {
   updateCoordsBadge();
   showLoading('Fetching climate for ' + p.name + '…');
   try {
-    state.climate = await fetchHistoricalClimate(p.lat, p.lon);
+    const [climate, buildingDensity] = await Promise.all([
+      fetchHistoricalClimate(p.lat, p.lon),
+      fetchBuildingDensity(p.lat, p.lon, 200).catch(() => null)
+    ]);
+    state.climate = climate;
+    suggestShielding(buildingDensity);
     runFullAnalysis();
     toast('Loaded: ' + p.name, 'success');
   } catch (e) {
