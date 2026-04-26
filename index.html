@@ -1901,12 +1901,14 @@ function renderWindRose(a) {
   const caption = document.createElement('div');
   caption.className = 'windrose-caption';
   caption.style.cssText = 'margin-top:12px;font-size:11px;color:var(--text-secondary);text-align:left;line-height:1.7;max-width:420px;padding-left:4px;';
+  const calmHours = Math.round(rose.calmFreq * rose.total);
+  const totalHours = rose.total;
   caption.innerHTML = state.lang === 'zh'
-    ? `<div style="margin-bottom:4px;">▸ 中心 <span class="mono" style="color:var(--accent);font-weight:600;">${(rose.calmFreq * 100).toFixed(0)}%</span>：最熱 3 個月中 10 m 風速 &lt; 0.5 m/s 的小時佔比（靜風，無明確風向）。</div>
+    ? `<div style="margin-bottom:4px;">▸ 中心 <span class="mono" style="color:var(--accent);font-weight:600;">${(rose.calmFreq * 100).toFixed(0)}%</span>（${calmHours.toLocaleString()} hr / 共 ${totalHours.toLocaleString()} hr）：最熱 3 個月中，離地 10 m 高度處風速 &lt; 0.5 m/s 的小時佔比（靜風，無明確風向）。</div>
        <div style="margin-bottom:4px;">▸ 放射狀扇區長度 = 該方位頻率；顏色堆疊 = 風速等級分布。</div>
        <div style="color:var(--text-tertiary);font-size:10px;padding-top:4px;border-top:1px solid var(--border-low);">
        ▸ 實務解讀：靜風時段 RRU 僅靠自然對流散熱，無風輔助。靜風比例越高，散熱設計越不能依賴強制對流。</div>`
-    : `<div style="margin-bottom:4px;">▸ Center <span class="mono" style="color:var(--accent);font-weight:600;">${(rose.calmFreq * 100).toFixed(0)}%</span>: fraction of hot-season hours with 10 m wind &lt; 0.5 m/s (calm, no clear direction).</div>
+    : `<div style="margin-bottom:4px;">▸ Center <span class="mono" style="color:var(--accent);font-weight:600;">${(rose.calmFreq * 100).toFixed(0)}%</span> (${calmHours.toLocaleString()} hr / ${totalHours.toLocaleString()} hr total): fraction of hot-season hours with wind speed &lt; 0.5 m/s at 10 m above ground level (calm, no clear direction).</div>
        <div style="margin-bottom:4px;">▸ Radial sector length = frequency in that direction; stacked colors = speed bins.</div>
        <div style="color:var(--text-tertiary);font-size:10px;padding-top:4px;border-top:1px solid var(--border-low);">
        ▸ Practical note: During calm periods, RRU relies on natural convection only. Higher calm % = less reliable forced convection.</div>`;
