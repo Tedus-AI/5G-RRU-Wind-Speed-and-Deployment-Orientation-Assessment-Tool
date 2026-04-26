@@ -1861,13 +1861,22 @@ function renderWindRose(a) {
     legend.appendChild(item);
   });
 
-  // Caption below legend explaining what calm means
+  // Caption below legend — remove any previous caption first to prevent duplication
+  const oldCaptions = legend.parentNode.querySelectorAll('.windrose-caption');
+  oldCaptions.forEach(el => el.remove());
+
   const caption = document.createElement('div');
   caption.className = 'windrose-caption';
-  caption.style.cssText = 'margin-top:10px;font-size:11px;color:var(--text-secondary);text-align:center;line-height:1.5;max-width:360px;';
+  caption.style.cssText = 'margin-top:10px;font-size:11px;color:var(--text-secondary);text-align:center;line-height:1.6;max-width:400px;';
   caption.innerHTML = state.lang === 'zh'
-    ? `中心 <span class="mono" style="color:var(--accent);font-weight:600;">${(rose.calmFreq * 100).toFixed(0)}%</span> 表示：最熱 3 個月日間 10 m 風速 &lt; 0.5 m/s 的小時比例（視為靜風，無明確風向）。<br>放射狀扇區長度 = 該方位頻率 × 顏色堆疊 = 風速等級分布。`
-    : `Center <span class="mono" style="color:var(--accent);font-weight:600;">${(rose.calmFreq * 100).toFixed(0)}%</span> = fraction of hot-season daytime hours with 10 m wind &lt; 0.5 m/s (calm, no clear direction).<br>Radial sector length = frequency in that direction; stacked colors = speed bins.`;
+    ? `中心 <span class="mono" style="color:var(--accent);font-weight:600;">${(rose.calmFreq * 100).toFixed(0)}%</span> 表示：最熱 3 個月 10 m 風速 &lt; 0.5 m/s 的小時佔比（視為靜風，無明確風向）。<br>
+       放射狀扇區長度 = 該方位頻率；顏色堆疊 = 風速等級分布。<br>
+       <span style="color:var(--text-tertiary);font-size:10px;margin-top:4px;display:inline-block;">
+       ▸ 實務解讀：靜風 = RRU 僅靠自然對流散熱，無風輔助。靜風比例越高，散熱設計越不能依賴強制對流。</span>`
+    : `Center <span class="mono" style="color:var(--accent);font-weight:600;">${(rose.calmFreq * 100).toFixed(0)}%</span> = fraction of hot-season hours with 10 m wind &lt; 0.5 m/s (calm, no clear direction).<br>
+       Radial sector length = frequency in that direction; stacked colors = speed bins.<br>
+       <span style="color:var(--text-tertiary);font-size:10px;margin-top:4px;display:inline-block;">
+       ▸ Practical note: Calm = RRU relies on natural convection only, no wind assist. Higher calm % = less reliable forced convection.</span>`;
   legend.parentNode.appendChild(caption);
 }
 
@@ -2009,7 +2018,9 @@ function renderRecList(a) {
       <div class="rec-body">
         <div class="rec-label">${state.lang === 'zh' ? '主導風向 (最熱季)' : 'Prevailing Wind (Hot Season)'}</div>
         <div class="rec-value">${r.prevailingLabel} · ${r.prevailingDeg.toFixed(0)}° · ${(r.prevailingFreq * 100).toFixed(0)}%</div>
-        <div class="rec-note">${state.lang === 'zh' ? '基於最熱 3 個月的 10 m 高度風頻率分佈' : 'From hottest 3 months @ 10 m'}</div>
+        <div class="rec-note">${state.lang === 'zh'
+          ? `${(r.prevailingFreq * 100).toFixed(0)}% = 最熱 3 個月中，風從 ${r.prevailingLabel}（${r.prevailingDeg.toFixed(0)}° ±11.25°）方向吹來的小時數佔全部小時數（含靜風）的比例。<br>共 16 個方位 × 每方位 22.5°；靜風（&lt;0.5 m/s）不分方向但計入總數。`
+          : `${(r.prevailingFreq * 100).toFixed(0)}% = fraction of hottest 3 months where wind blows from ${r.prevailingLabel} (${r.prevailingDeg.toFixed(0)}° ±11.25°) out of all hours including calm.<br>16 directional bins × 22.5° each; calm (&lt;0.5 m/s) counted in total but not assigned a direction.`}</div>
       </div>
     </li>
     <li>
@@ -2024,10 +2035,34 @@ function renderRecList(a) {
       <div class="rec-icon">③</div>
       <div class="rec-body">
         <div class="rec-label">${state.lang === 'zh' ? '機體建議方位 (受扇區約束)' : 'Recommended Unit Azimuth (sector-constrained)'}</div>
-        <div class="rec-value">${r.recommendedAz.toFixed(0)}° ${r.rotationOffset >= 0 ? '+' : ''}${r.rotationOffset}° from sector</div>
-        <div class="rec-note">${state.lang === 'zh'
-          ? `在扇區方位 ${state.params.sector}° ±45° 約束下，與風軸最小夾角 ${r.bestDiff.toFixed(0)}° (對齊度 ${(r.alignmentQuality*100).toFixed(0)}%)`
-          : `Within sector ${state.params.sector}° ±45°, min angle to wind axis = ${r.bestDiff.toFixed(0)}° (alignment ${(r.alignmentQuality*100).toFixed(0)}%)`}</div>
+        <div class="rec-value">${state.lang === 'zh'
+          ? `天線面向 ${r.recommendedAz.toFixed(0)}°（扇區 ${state.params.sector}° ${r.rotationOffset >= 0 ? '+' : ''}${r.rotationOffset}°）`
+          : `Antenna facing ${r.recommendedAz.toFixed(0)}° (sector ${state.params.sector}° ${r.rotationOffset >= 0 ? '+' : ''}${r.rotationOffset}°)`}</div>
+        <div class="rec-note">${(() => {
+          // Fins are on the BACK of the unit (opposite antenna face)
+          const finFaceDeg = (r.recommendedAz + 180) % 360;
+          // Wind comes FROM prevailingDeg, flows TOWARDS (prevailingDeg+180)%360
+          const windFlowTo = (r.prevailingDeg + 180) % 360;
+          // Angle between fin face and wind flow direction
+          let finWindAngle = Math.abs(((finFaceDeg - windFlowTo + 540) % 360) - 180);
+          // Determine if windward or leeward: if finWindAngle < 90, fins are on windward side
+          const isWindward = finWindAngle <= 90;
+          if (state.lang === 'zh') {
+            return `天線扇區允許範圍：${state.params.sector}° ±45°（即 ${((state.params.sector - 45 + 360) % 360)}°~${((state.params.sector + 45) % 360)}°）。<br>` +
+              `鰭片位於天線正後方（面向 ${finFaceDeg.toFixed(0)}°），主風從 ${r.prevailingLabel}（${r.prevailingDeg.toFixed(0)}°）吹來。<br>` +
+              (isWindward
+                ? `<span style="color:var(--success);">✓ 鰭片處於<b>迎風面</b>（風直吹鰭片，散熱效率最佳），風與鰭片面夾角 ${finWindAngle.toFixed(0)}°。</span>`
+                : `<span style="color:var(--warn);">△ 鰭片處於<b>背風面</b>（風從天線側吹來，需繞過機體才到鰭片），風與鰭片面夾角 ${finWindAngle.toFixed(0)}°。</span>`) +
+              `<br>對齊度 ${(r.alignmentQuality*100).toFixed(0)}%（鰭片通道與風軸夾角 ${r.bestDiff.toFixed(0)}°）`;
+          } else {
+            return `Sector allows ${state.params.sector}° ±45° (${((state.params.sector - 45 + 360) % 360)}°–${((state.params.sector + 45) % 360)}°).<br>` +
+              `Fins on unit back (facing ${finFaceDeg.toFixed(0)}°), wind from ${r.prevailingLabel} (${r.prevailingDeg.toFixed(0)}°).<br>` +
+              (isWindward
+                ? `<span style="color:var(--success);">✓ Fins are <b>windward</b> (wind hits fins directly, best cooling). Fin-wind angle ${finWindAngle.toFixed(0)}°.</span>`
+                : `<span style="color:var(--warn);">△ Fins are <b>leeward</b> (wind must travel around unit to reach fins). Fin-wind angle ${finWindAngle.toFixed(0)}°.</span>`) +
+              `<br>Alignment ${(r.alignmentQuality*100).toFixed(0)}% (fin channel vs wind axis: ${r.bestDiff.toFixed(0)}° off)`;
+          }
+        })()}</div>
       </div>
     </li>
     <li>
@@ -2049,12 +2084,53 @@ function renderRecList(a) {
   else if (q > 0.4) { label = state.lang === 'zh' ? '普通 MODERATE' : 'MODERATE'; color = 'var(--warn)'; }
   else { label = state.lang === 'zh' ? '差 POOR' : 'POOR';               color = 'var(--error)'; }
   badge.innerHTML = `${label} · ${(q*100).toFixed(0)}% <span style="opacity:0.6;font-size:10px;">ⓘ</span>`;
-  badge.style.cursor = 'help';
+  badge.style.cursor = 'pointer';
   badge.style.color = color;
   badge.style.borderColor = color;
-  badge.title = state.lang === 'zh'
-    ? `鰭片方向對齊度 = ${(q*100).toFixed(0)}%（與風軸夾角 ${r.bestDiff.toFixed(0)}°）\n\n評級標準：\n  佳 GOOD    : 對齊度 > 70%（夾角 < 13.5°）\n  普通 MODER : 對齊度 40–70%（夾角 13.5–27°）\n  差 POOR    : 對齊度 < 40%（夾角 > 27°）\n\n這不是「散熱差」，是「風向對鰭片方向不理想」。在 POOR 情況下建議純用自然對流設計。`
-    : `Fin-to-wind alignment = ${(q*100).toFixed(0)}% (angle ${r.bestDiff.toFixed(0)}° off wind axis)\n\nGrading:\n  GOOD     : alignment > 70% (< 13.5° off)\n  MODERATE : 40–70% (13.5–27° off)\n  POOR     : < 40% (> 27° off)\n\nThis means "fin direction vs wind is suboptimal", NOT that the cooling design is bad. In POOR cases, design for natural convection only.`;
+  badge.title = '';  // clear native tooltip — we use a visible popover instead
+  // Remove old listener if any
+  badge.onclick = () => {
+    // Toggle popover
+    let pop = document.getElementById('badge-popover');
+    if (pop) { pop.remove(); return; }
+    pop = document.createElement('div');
+    pop.id = 'badge-popover';
+    pop.style.cssText = `position:absolute;top:calc(100% + 6px);right:0;z-index:999;
+      background:var(--surface-high);border:1px solid ${color};border-radius:var(--r-md);
+      padding:14px 16px;min-width:320px;max-width:400px;font-size:12px;line-height:1.7;
+      color:var(--text-primary);box-shadow:0 8px 32px rgba(0,0,0,0.5);`;
+    const tooltipContent = state.lang === 'zh'
+      ? `<div style="font-weight:600;margin-bottom:8px;color:${color};">鰭片方向對齊度 = ${(q*100).toFixed(0)}%（與風軸夾角 ${r.bestDiff.toFixed(0)}°）</div>
+         <div style="margin-bottom:6px;">評級標準：</div>
+         <div style="padding-left:8px;">
+           <span style="color:var(--success);">■</span> <b>佳 GOOD</b>：對齊度 &gt; 70%（夾角 &lt; 13.5°）<br>
+           <span style="color:var(--warn);">■</span> <b>普通 MODERATE</b>：對齊度 40–70%（夾角 13.5–27°）<br>
+           <span style="color:var(--error);">■</span> <b>差 POOR</b>：對齊度 &lt; 40%（夾角 &gt; 27°）
+         </div>
+         <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border-low);color:var(--text-secondary);">
+           ⚠ 這不是「散熱差」，而是「在天線扇區約束下，鰭片無法與主風向良好對齊」。<br>
+           POOR 情況下建議純以自然對流為散熱設計基準，風為額外 bonus。
+         </div>`
+      : `<div style="font-weight:600;margin-bottom:8px;color:${color};">Fin-to-wind alignment = ${(q*100).toFixed(0)}% (angle ${r.bestDiff.toFixed(0)}° off wind axis)</div>
+         <div style="margin-bottom:6px;">Grading:</div>
+         <div style="padding-left:8px;">
+           <span style="color:var(--success);">■</span> <b>GOOD</b>: &gt; 70% (&lt; 13.5° off)<br>
+           <span style="color:var(--warn);">■</span> <b>MODERATE</b>: 40–70% (13.5–27° off)<br>
+           <span style="color:var(--error);">■</span> <b>POOR</b>: &lt; 40% (&gt; 27° off)
+         </div>
+         <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border-low);color:var(--text-secondary);">
+           ⚠ "POOR" means fin direction vs wind is suboptimal under sector constraint — NOT that the cooling design is bad.<br>
+           In POOR cases, design for natural convection only; treat wind as bonus.
+         </div>`;
+    pop.innerHTML = tooltipContent;
+    badge.parentElement.style.position = 'relative';
+    badge.parentElement.appendChild(pop);
+    // Close when clicking outside
+    setTimeout(() => {
+      const closer = (e) => { if (!pop.contains(e.target) && e.target !== badge) { pop.remove(); document.removeEventListener('click', closer); } };
+      document.addEventListener('click', closer);
+    }, 10);
+  };
 
   // Alerts
   let alertsHtml = '';
@@ -2428,7 +2504,7 @@ async function searchAndLoad() {
     const geo = await geocodeAddress(q);
     state.location = geo;
     setMapMarker(geo.lat, geo.lon);
-    map.setView([geo.lat, geo.lon], 11);
+    map.setView([geo.lat, geo.lon], 15);   // street-level zoom for searched address
     updateCoordsBadge();
     toast(`Found: ${geo.name}`, 'success');
 
