@@ -1542,13 +1542,13 @@ function computeRecommendations(rose, sectorAz) {
   if (prevailingFreq >= 0.30) {
     convMode = 'mixed';
     modeNote = state.lang === 'zh'
-      ? `主導風向頻率 ${(prevailingFreq * 100).toFixed(0)}% ≥ 30%，可將強制對流納入散熱餘裕計算`
-      : `Prevailing direction frequency ${(prevailingFreq * 100).toFixed(0)}% ≥ 30%. Forced convection can be credited.`;
+      ? `主導風向頻率 ${(prevailingFreq * 100).toFixed(0)}% ≥ 30% 門檻，可將強制對流納入散熱餘裕計算。<br><span style="font-size:11px;color:var(--text-tertiary);">門檻說明：≥ 30% 表示該方向風出現頻率夠高，強制對流具設計可靠度；&lt; 30% 則其餘 70%+ 時段風向不定或無風，依賴強制對流風險過大。</span>`
+      : `Prevailing direction frequency ${(prevailingFreq * 100).toFixed(0)}% ≥ 30% threshold. Forced convection can be credited.<br><span style="font-size:11px;color:var(--text-tertiary);">Threshold: ≥ 30% means wind from this direction is frequent enough for reliable forced convection; below 30%, wind is absent or scattered 70%+ of the time — too risky to rely on.</span>`;
   } else {
     convMode = 'natural';
     modeNote = state.lang === 'zh'
-      ? `主導風向頻率僅 ${(prevailingFreq * 100).toFixed(0)}%，建議純以自然對流為設計基準，風為 bonus`
-      : `Prevailing direction only ${(prevailingFreq * 100).toFixed(0)}%. Use natural convection as baseline, wind as bonus.`;
+      ? `主導風向頻率僅 ${(prevailingFreq * 100).toFixed(0)}%，未達 30% 門檻，建議純以自然對流為設計基準，風為 bonus。<br><span style="font-size:11px;color:var(--text-tertiary);">門檻說明：≥ 30% 表示該方向風出現頻率夠高，強制對流具設計可靠度；&lt; 30% 則其餘 70%+ 時段風向不定或無風，依賴強制對流風險過大。</span>`
+      : `Prevailing direction only ${(prevailingFreq * 100).toFixed(0)}%, below 30% threshold. Use natural convection as baseline, wind as bonus.<br><span style="font-size:11px;color:var(--text-tertiary);">Threshold: ≥ 30% means wind from this direction is frequent enough for reliable forced convection; below 30%, wind is absent or scattered 70%+ of the time — too risky to rely on.</span>`;
   }
 
   return {
