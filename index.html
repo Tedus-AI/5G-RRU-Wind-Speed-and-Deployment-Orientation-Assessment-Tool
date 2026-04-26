@@ -1520,19 +1520,30 @@ function computeRecommendations(rose, sectorAz) {
   const finAxis = windFlowDeg; // fins should be parallel to this axis
 
   // Sector constraint: machine can rotate ±45° from sectorAz
-  // We want to minimize the angle between (sectorAz + offset) and the wind axis
-  // Wind axis is bidirectional (a line, not vector), so check both windFlowDeg and (windFlowDeg+180)
+  // We want to minimize the angle between fin channel and wind axis,
+  // AND prefer windward (fins facing into wind) when alignment is tied.
+  // Wind axis is bidirectional (a line, not vector), so check both directions.
   function angleDiff(a, b) {
     let d = ((a - b + 540) % 360) - 180;
     return Math.abs(d);
   }
-  let bestOffset = 0, bestDiff = Infinity;
+  // Helper: compute how "windward" the fins are for a given unit azimuth.
+  // Fins face (az+180)%360. If fins face toward wind origin → windward (small angle = better).
+  function finWindwardAngle(az) {
+    const finFace = (az + 180) % 360;
+    return Math.abs(((finFace - prevailingDeg + 540) % 360) - 180);
+  }
+  let bestOffset = 0, bestDiff = Infinity, bestWindward = Infinity;
   for (let off = -45; off <= 45; off += 1) {
     const a = (sectorAz + off + 360) % 360;
     const d1 = angleDiff(a, windFlowDeg);
     const d2 = angleDiff(a, (windFlowDeg + 180) % 360);
     const d = Math.min(d1, d2);
-    if (d < bestDiff) { bestDiff = d; bestOffset = off; }
+    const ww = finWindwardAngle(a);  // lower = more windward
+    // Primary sort: smallest alignment angle. Tiebreak: prefer windward (smaller ww).
+    if (d < bestDiff || (d === bestDiff && ww < bestWindward)) {
+      bestDiff = d; bestOffset = off; bestWindward = ww;
+    }
   }
   const recommendedAz = (sectorAz + bestOffset + 360) % 360;
   const alignmentQuality = Math.max(0, 1 - bestDiff / 45);
