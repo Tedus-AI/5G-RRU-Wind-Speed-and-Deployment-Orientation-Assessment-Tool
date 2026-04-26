@@ -2083,41 +2083,59 @@ function renderRecList(a) {
     <li>
       <div class="rec-icon">②</div>
       <div class="rec-body">
-        <div class="rec-label">${state.lang === 'zh' ? '建議鰭片走向' : 'Recommended Fin Axis'}</div>
-        <div class="rec-value">${r.finAxisDeg.toFixed(0)}° axis</div>
-        <div class="rec-note">${state.lang === 'zh' ? '鰭片走向應平行於主風向，讓氣流可順暢通過鰭片通道' : 'Fins should be parallel to prevailing wind so airflow passes through the fin channels.'}</div>
+        <div class="rec-label">${state.lang === 'zh' ? '建議鰭片面向方位' : 'Recommended Fin Facing Direction'}</div>
+        <div class="rec-value">${(() => {
+          const finFace = (r.recommendedAz + 180) % 360;
+          const finFaceLabel = state.lang === 'zh' ? DIR_LABELS_16_ZH[Math.round(finFace / 22.5) % 16] : DIR_LABELS_16[Math.round(finFace / 22.5) % 16];
+          return `${finFaceLabel} · ${finFace.toFixed(0)}°`;
+        })()}</div>
+        <div class="rec-note">${(() => {
+          const finFace = (r.recommendedAz + 180) % 360;
+          if (state.lang === 'zh') {
+            return `鰭片位於天線正後方。天線面向 ${r.recommendedAz.toFixed(0)}°，故鰭片面向 ${finFace.toFixed(0)}°。<br>` +
+              `此方位已考慮天線扇區約束（${state.params.sector}° ±45°）與主導風向（${r.prevailingLabel} ${r.prevailingDeg.toFixed(0)}°），在允許範圍內選出鰭片最能迎風的朝向。`;
+          } else {
+            return `Fins are on the back of the unit. Antenna faces ${r.recommendedAz.toFixed(0)}°, so fins face ${finFace.toFixed(0)}°.<br>` +
+              `This orientation accounts for both sector constraint (${state.params.sector}° ±45°) and prevailing wind (${r.prevailingLabel} ${r.prevailingDeg.toFixed(0)}°), choosing the best fin-to-wind alignment within the allowed range.`;
+          }
+        })()}</div>
       </div>
     </li>
     <li>
       <div class="rec-icon">③</div>
       <div class="rec-body">
-        <div class="rec-label">${state.lang === 'zh' ? '機體建議方位 (受扇區約束)' : 'Recommended Unit Azimuth (sector-constrained)'}</div>
-        <div class="rec-value">${state.lang === 'zh'
-          ? `天線面向 ${r.recommendedAz.toFixed(0)}°（扇區 ${state.params.sector}° ${r.rotationOffset >= 0 ? '+' : ''}${r.rotationOffset}°）`
-          : `Antenna facing ${r.recommendedAz.toFixed(0)}° (sector ${state.params.sector}° ${r.rotationOffset >= 0 ? '+' : ''}${r.rotationOffset}°)`}</div>
+        <div class="rec-label">${state.lang === 'zh' ? '鰭片迎風/背風判定' : 'Fin Windward / Leeward Assessment'}</div>
+        <div class="rec-value">${(() => {
+          const _ff = (r.recommendedAz + 180) % 360;
+          const _a = Math.abs(((_ff - r.prevailingDeg + 540) % 360) - 180);
+          return _a <= 90
+            ? (state.lang === 'zh' ? '✓ 迎風面' : '✓ Windward')
+            : (state.lang === 'zh' ? '△ 背風面' : '△ Leeward');
+        })()}</div>
         <div class="rec-note">${(() => {
           // Fins are on the BACK of the unit (opposite antenna face)
           const finFaceDeg = (r.recommendedAz + 180) % 360;
-          // Wind comes FROM prevailingDeg, flows TOWARDS (prevailingDeg+180)%360
-          const windFlowTo = (r.prevailingDeg + 180) % 360;
-          // Angle between fin face and wind flow direction
-          let finWindAngle = Math.abs(((finFaceDeg - windFlowTo + 540) % 360) - 180);
-          // Determine if windward or leeward: if finWindAngle < 90, fins are on windward side
-          const isWindward = finWindAngle <= 90;
+          // Wind comes FROM prevailingDeg — so wind hits the side that FACES the wind origin
+          // If fin face direction ≈ wind origin direction → wind blows INTO fins → WINDWARD
+          // Compute angle between fin face and wind origin (where wind comes FROM)
+          let finToWindOrigin = Math.abs(((finFaceDeg - r.prevailingDeg + 540) % 360) - 180);
+          // finToWindOrigin ≈ 0° → fins face directly into the wind → perfect windward
+          // finToWindOrigin ≈ 180° → fins face away from wind → perfect leeward
+          const isWindward = finToWindOrigin <= 90;
           if (state.lang === 'zh') {
-            return `天線扇區允許範圍：${state.params.sector}° ±45°（即 ${((state.params.sector - 45 + 360) % 360)}°~${((state.params.sector + 45) % 360)}°）。<br>` +
-              `鰭片位於天線正後方（面向 ${finFaceDeg.toFixed(0)}°），主風從 ${r.prevailingLabel}（${r.prevailingDeg.toFixed(0)}°）吹來。<br>` +
+            return `天線面向 ${r.recommendedAz.toFixed(0)}°，鰭片面向 ${finFaceDeg.toFixed(0)}°，主風從 ${r.prevailingLabel}（${r.prevailingDeg.toFixed(0)}°）吹來。<br>` +
+              `鰭片面向與風的來向夾角 = ${finToWindOrigin.toFixed(0)}°。<br>` +
               (isWindward
-                ? `<span style="color:var(--success);">✓ 鰭片處於<b>迎風面</b>（風直吹鰭片，散熱效率最佳），風與鰭片面夾角 ${finWindAngle.toFixed(0)}°。</span>`
-                : `<span style="color:var(--warn);">△ 鰭片處於<b>背風面</b>（風從天線側吹來，需繞過機體才到鰭片），風與鰭片面夾角 ${finWindAngle.toFixed(0)}°。</span>`) +
-              `<br>對齊度 ${(r.alignmentQuality*100).toFixed(0)}%（鰭片通道與風軸夾角 ${r.bestDiff.toFixed(0)}°）`;
+                ? `<span style="color:var(--success);">✓ 鰭片處於<b>迎風面</b>（風直接吹向鰭片表面，強制對流效率最佳）。</span>`
+                : `<span style="color:var(--warn);">△ 鰭片處於<b>背風面</b>（風從天線側吹來，需繞過機體才到鰭片，強制對流效率降低）。</span>`) +
+              `<br>鰭片通道與風軸對齊度 ${(r.alignmentQuality*100).toFixed(0)}%（夾角 ${r.bestDiff.toFixed(0)}°）`;
           } else {
-            return `Sector allows ${state.params.sector}° ±45° (${((state.params.sector - 45 + 360) % 360)}°–${((state.params.sector + 45) % 360)}°).<br>` +
-              `Fins on unit back (facing ${finFaceDeg.toFixed(0)}°), wind from ${r.prevailingLabel} (${r.prevailingDeg.toFixed(0)}°).<br>` +
+            return `Antenna faces ${r.recommendedAz.toFixed(0)}°, fins face ${finFaceDeg.toFixed(0)}°, wind from ${r.prevailingLabel} (${r.prevailingDeg.toFixed(0)}°).<br>` +
+              `Angle between fin face and wind origin = ${finToWindOrigin.toFixed(0)}°.<br>` +
               (isWindward
-                ? `<span style="color:var(--success);">✓ Fins are <b>windward</b> (wind hits fins directly, best cooling). Fin-wind angle ${finWindAngle.toFixed(0)}°.</span>`
-                : `<span style="color:var(--warn);">△ Fins are <b>leeward</b> (wind must travel around unit to reach fins). Fin-wind angle ${finWindAngle.toFixed(0)}°.</span>`) +
-              `<br>Alignment ${(r.alignmentQuality*100).toFixed(0)}% (fin channel vs wind axis: ${r.bestDiff.toFixed(0)}° off)`;
+                ? `<span style="color:var(--success);">✓ Fins are <b>windward</b> (wind blows directly onto fin surface, best forced convection).</span>`
+                : `<span style="color:var(--warn);">△ Fins are <b>leeward</b> (wind comes from antenna side, must travel around unit to reach fins).</span>`) +
+              `<br>Fin channel alignment ${(r.alignmentQuality*100).toFixed(0)}% (${r.bestDiff.toFixed(0)}° off wind axis)`;
           }
         })()}</div>
       </div>
