@@ -660,7 +660,7 @@
 
     <div class="grid grid-asym">
       <div>
-        <label data-i18n="loc.address">Address or Place Name</label>
+        <label data-i18n="loc.address">地址 / 地名 / 座標</label>
         <input type="text" id="address-input" placeholder="例：新北市汐止區新台五路一段 / Taipei 101 / 25.04, 121.56" />
         <div style="display:flex; gap:8px; margin-top:10px;">
           <button class="btn btn-primary" id="search-btn">
@@ -672,18 +672,16 @@
         </div>
 
         <div style="margin-top:14px;">
-          <div class="stat-label" data-i18n="loc.presets">Quick Presets</div>
+          <div class="stat-label" data-i18n="loc.presets">最近查詢紀錄</div>
           <div class="preset-row" id="presets-row">
-            <button class="preset-chip" data-preset="taipei">台北 / Taipei</button>
-            <button class="preset-chip" data-preset="kaohsiung">高雄 / Kaohsiung</button>
-            <button class="preset-chip" data-preset="singapore">新加坡 / Singapore</button>
-            <button class="preset-chip" data-preset="dubai">杜拜 / Dubai</button>
-            <button class="preset-chip" data-preset="reykjavik">雷克雅維克 / Reykjavík</button>
-            <button class="preset-chip" data-preset="phoenix">鳳凰城 / Phoenix</button>
+            <!-- Dynamically populated from localStorage -->
           </div>
         </div>
 
-        <p class="help" data-i18n="loc.help">系統會抓取該座標近 5 年的歷史氣候資料（Open-Meteo Archive API）。資料來源公開、免費、無需 API key。</p>
+        <p class="help" style="line-height:1.6;">
+          <span data-i18n="loc.help">系統會抓取該座標近 5 年的歷史氣候資料（Open-Meteo Archive API）。資料來源公開、免費、無需 API key。</span><br>
+          <span style="color:var(--text-tertiary);font-size:10px;" data-i18n="loc.help2">氣象資料非來自觀測站，而是 ECMWF ERA5／ERA5-Land 再分析資料：將全球觀測（氣象站、衛星、雷達、探空氣球等）輸入數值天氣模式反算，產出全球網格化逐時資料集。ERA5 解析度 ~31 km；ERA5-Land ~9 km（僅陸地）；Open-Meteo 以 bilinear 內插取值。</span>
+        </p>
       </div>
 
       <div>
@@ -1005,11 +1003,12 @@ const I18N = {
     'role.customer': '客戶',
     'role.field': '現場工程師',
     'loc.title': '架設位置',
-    'loc.address': '地址或地名',
+    'loc.address': '地址／地名／座標',
     'loc.search': '搜尋並載入氣候資料',
     'loc.locate': '使用目前位置',
-    'loc.presets': '快速範例站點',
-    'loc.help': '系統會抓取該座標近 5 年的歷史氣候資料 (Open-Meteo Archive API)。資料來源公開、免費、無需 API key。',
+    'loc.presets': '最近查詢紀錄',
+    'loc.help': '系統會抓取該座標近 5 年的歷史氣候資料（Open-Meteo Archive API）。資料來源公開、免費、無需 API key。',
+    'loc.help2': '氣象資料非來自觀測站，而是 ECMWF ERA5／ERA5-Land 再分析資料：將全球觀測（氣象站、衛星、雷達、探空氣球等）輸入數值天氣模式反算，產出全球網格化逐時資料集。ERA5 解析度 ~31 km；ERA5-Land ~9 km（僅陸地）；Open-Meteo 以 bilinear 內插取值。',
     'params.title': '現場參數',
     'params.height': '架設高度 (m)',
     'params.height.help': '距地面架設高度，用於 Power Law 風速修正',
@@ -1060,11 +1059,12 @@ const I18N = {
     'role.customer': 'Customer',
     'role.field': 'Field Engineer',
     'loc.title': 'Site Location',
-    'loc.address': 'Address or Place Name',
+    'loc.address': 'Address / Place / Coordinates',
     'loc.search': 'Search & Load Climate',
     'loc.locate': 'My Location',
-    'loc.presets': 'Quick Presets',
+    'loc.presets': 'Recent Searches',
     'loc.help': 'Fetches 5 years of historical climate data via the Open-Meteo Archive API. Free, public, no API key required.',
+    'loc.help2': 'Data is from ECMWF ERA5/ERA5-Land reanalysis (not weather stations): global observations (stations, satellites, radar, radiosondes) fed into a numerical weather model to produce gridded hourly data. ERA5 ~31 km; ERA5-Land ~9 km (land only); Open-Meteo applies bilinear interpolation.',
     'params.title': 'Site Parameters',
     'params.height': 'Antenna Height (m)',
     'params.height.help': 'Above-ground installation height. Used for Power Law wind correction.',
@@ -2707,6 +2707,66 @@ function setLang(lang) {
 /* =============================================================
    MAIN ACTION
    ============================================================= */
+/* =============================================================
+   SEARCH HISTORY (localStorage)
+   ============================================================= */
+const HISTORY_KEY = 'rru-search-history';
+const MAX_HISTORY = 8;
+
+function getSearchHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveSearchHistory(entry) {
+  // entry: { query, name, lat, lon }
+  const history = getSearchHistory();
+  // Remove duplicate (same lat/lon rounded to 3 decimals)
+  const key = `${entry.lat.toFixed(3)}_${entry.lon.toFixed(3)}`;
+  const filtered = history.filter(h => `${h.lat.toFixed(3)}_${h.lon.toFixed(3)}` !== key);
+  filtered.unshift(entry);
+  if (filtered.length > MAX_HISTORY) filtered.length = MAX_HISTORY;
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(filtered)); } catch {}
+  renderSearchHistory();
+}
+
+function renderSearchHistory() {
+  const row = $('#presets-row');
+  const history = getSearchHistory();
+  if (history.length === 0) {
+    row.innerHTML = `<span style="color:var(--text-tertiary);font-size:11px;">${
+      state.lang === 'zh' ? '尚無紀錄，搜尋後自動儲存' : 'No history yet — saved automatically after search'
+    }</span>`;
+    return;
+  }
+  row.innerHTML = history.map((h, i) => {
+    const label = h.name || `${h.lat.toFixed(4)}, ${h.lon.toFixed(4)}`;
+    // Truncate long names
+    const short = label.length > 24 ? label.slice(0, 22) + '…' : label;
+    return `<button class="preset-chip" data-hist="${i}" title="${label}">${short}</button>`;
+  }).join('') + `<button class="preset-chip" data-hist="clear" style="opacity:0.5;font-size:10px;" title="${
+    state.lang === 'zh' ? '清除所有紀錄' : 'Clear all'
+  }">✕</button>`;
+
+  // Wire up click handlers
+  row.querySelectorAll('[data-hist]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = btn.dataset.hist;
+      if (idx === 'clear') {
+        try { localStorage.removeItem(HISTORY_KEY); } catch {}
+        renderSearchHistory();
+        return;
+      }
+      const h = history[parseInt(idx)];
+      if (!h) return;
+      $('#address-input').value = h.query || h.name || `${h.lat}, ${h.lon}`;
+      searchAndLoad();
+    });
+  });
+}
+
 async function searchAndLoad() {
   const q = $('#address-input').value.trim();
   if (!q) { toast('Please enter an address', 'error'); return; }
@@ -2718,6 +2778,9 @@ async function searchAndLoad() {
     map.setView([geo.lat, geo.lon], 15);   // street-level zoom for searched address
     updateCoordsBadge();
     toast(`Found: ${geo.name}`, 'success');
+
+    // Save to search history
+    saveSearchHistory({ query: q, name: geo.name, lat: geo.lat, lon: geo.lon });
 
     showLoading('Fetching 5-year climate history…');
     // Fetch climate data and building density in parallel
@@ -2814,9 +2877,8 @@ function setupEvents() {
     );
   });
 
-  $$('#presets-row .preset-chip').forEach(btn => {
-    btn.addEventListener('click', () => loadPreset(btn.dataset.preset));
-  });
+  // Render search history from localStorage (replaces old preset buttons)
+  renderSearchHistory();
 
   $$('#role-switch button').forEach(btn => btn.addEventListener('click', () => setRole(btn.dataset.role)));
   $$('#lang-switch button').forEach(btn => btn.addEventListener('click', () => setLang(btn.dataset.lang)));
