@@ -1803,8 +1803,8 @@ function renderSummaryCards(a) {
       <div class="stat-label">${zh ? '熱季 Sol-air P95 ★' : 'Hot-season Sol-air P95 ★'}</div>
       <div class="stat-value num">${fmt(hsa.p95)}<span class="unit">°C</span></div>
       <div class="stat-foot">${zh
-        ? `最熱 3 個月（<b>${hotMonthLabel}</b>）含日射<br>α<sub>s</sub> = ${absLabel}，散熱設計建議參考值<br>vs 氣溫 P95 ${fmt(a.hotTempStats.p95)}°C (+${(hsa.p95 - a.hotTempStats.p95).toFixed(1)}°C)`
-        : `Hottest 3 months (<b>${hotMonthLabel}</b>) incl. solar<br>α<sub>s</sub> = ${absLabel}, recommended design ref.<br>vs air P95 ${fmt(a.hotTempStats.p95)}°C (+${(hsa.p95 - a.hotTempStats.p95).toFixed(1)}°C)`}</div>
+        ? `最熱 3 個月（<b>${hotMonthLabel}</b>）含日射<br>α<sub>s</sub> = ${absLabel}，散熱設計建議參考值<br>vs 氣溫 P95 ${fmt(a.hotTempStats.p95)}°C (+${(hsa.p95 - a.hotTempStats.p95).toFixed(1)}°C)<br>Sol-air 極端: ${fmt(sa.max)}°C`
+        : `Hottest 3 months (<b>${hotMonthLabel}</b>) incl. solar<br>α<sub>s</sub> = ${absLabel}, recommended design ref.<br>vs air P95 ${fmt(a.hotTempStats.p95)}°C (+${(hsa.p95 - a.hotTempStats.p95).toFixed(1)}°C)<br>Sol-air max: ${fmt(sa.max)}°C`}</div>
     </div>
     <div class="stat">
       <div class="stat-label">${zh ? '熱季氣溫 P95' : 'Hot-season Air P95'}</div>
