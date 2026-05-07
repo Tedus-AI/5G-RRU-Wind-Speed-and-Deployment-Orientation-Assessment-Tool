@@ -1757,7 +1757,7 @@ function renderSummaryCards(a) {
     <div class="stat ${ts.max > 50 ? 'stat-warn' : ''}">
       <div class="stat-label">${zh ? '歷史極端' : 'Historical Max'}</div>
       <div class="stat-value num">${fmt(ts.max)}<span class="unit">°C</span></div>
-      <div class="stat-foot">${zh ? `近 5 年逐時最大值<br>vs 設計基準 55°C（餘裕 ${(55 - ts.max).toFixed(1)} K）` : `5-yr hourly max<br>vs 55°C design (margin ${(55 - ts.max).toFixed(1)} K)`}</div>
+      <div class="stat-foot">${zh ? `近 5 年逐時最大值<br>vs 設計基準 55°C（餘裕 ${(55 - ts.max).toFixed(1)}°C）` : `5-yr hourly max<br>vs 55°C design (margin ${(55 - ts.max).toFixed(1)}°C)`}</div>
     </div>
     <div class="stat">
       <div class="stat-label">${zh ? '10 m 平均風速' : 'Mean Wind @10 m'}</div>
@@ -1795,15 +1795,15 @@ function renderSummaryCards(a) {
       <div class="stat-label">${zh ? 'Sol-air P95' : 'Sol-air P95'}</div>
       <div class="stat-value num">${fmt(sa.p95)}<span class="unit">°C</span></div>
       <div class="stat-foot">${zh
-        ? `考慮日射的等效環境溫度<br>α<sub>s</sub> = ${absLabel}，vs 氣溫 P95 ${fmt(ts.p95)}°C<br>ΔT<sub>sol</sub> = +${(sa.p95 - ts.p95).toFixed(1)} K`
-        : `Effective ambient incl. solar<br>α<sub>s</sub> = ${absLabel}, vs air P95 ${fmt(ts.p95)}°C<br>ΔT<sub>sol</sub> = +${(sa.p95 - ts.p95).toFixed(1)} K`}</div>
+        ? `考慮日射的等效環境溫度<br>α<sub>s</sub> = ${absLabel}，vs 氣溫 P95 ${fmt(ts.p95)}°C<br>ΔT<sub>sol</sub> = +${(sa.p95 - ts.p95).toFixed(1)}°C`
+        : `Effective ambient incl. solar<br>α<sub>s</sub> = ${absLabel}, vs air P95 ${fmt(ts.p95)}°C<br>ΔT<sub>sol</sub> = +${(sa.p95 - ts.p95).toFixed(1)}°C`}</div>
     </div>
     <div class="stat">
       <div class="stat-label">${zh ? 'Sol-air 極端' : 'Sol-air Max'}</div>
       <div class="stat-value num">${fmt(sa.max)}<span class="unit">°C</span></div>
       <div class="stat-foot">${zh
-        ? `歷史最高等效溫度<br>vs 氣溫最高 ${fmt(ts.max)}°C (+${(sa.max - ts.max).toFixed(1)} K)`
-        : `Historical worst sol-air<br>vs air max ${fmt(ts.max)}°C (+${(sa.max - ts.max).toFixed(1)} K)`}</div>
+        ? `歷史最高等效溫度<br>vs 氣溫最高 ${fmt(ts.max)}°C (+${(sa.max - ts.max).toFixed(1)}°C)`
+        : `Historical worst sol-air<br>vs air max ${fmt(ts.max)}°C (+${(sa.max - ts.max).toFixed(1)}°C)`}</div>
     </div>
     <div class="stat">
       <div class="stat-label">${zh ? '熱季 Sol-air P95' : 'Hot-season Sol-air P95'}</div>
@@ -1844,28 +1844,43 @@ function renderSummaryCards(a) {
     // Insert after row2
     row2.parentNode.insertBefore(capt, row2.nextSibling);
   }
+  const captStyle = 'style="margin:3px 0 0 18px;line-height:1.9;"';
   if (zh) {
     capt.innerHTML = `<strong>計算流程：</strong>
-    抓取 Open-Meteo 近 ${yrs} 年、資料期間 ${a.period.start} → ${a.period.end} 的逐時氣候資料 →
-    統計 2 m 氣溫（離地 2 m 高度處空氣溫度，氣象標準觀測高度，ERA5 變數 <code>temperature_2m</code>）的平均、P50、P95、最高值與超過 50/55°C 的時數 →
-    將 10 m 風速過濾靜風（<0.5 m/s）後取算術平均 V<sub>10</sub> →
-    以 Power Law 修正至安裝高度 h = ${state.params.height} m：
-    <code>V<sub>h</sub> = V<sub>10</sub> × (h/10)<sup>α</sup> × s<sub>shield</sub></code>
-    （α = ${state.params.alpha}，代表「${terrainLabelZh(state.params.alpha)}」；s<sub>shield</sub> = ${state.params.shielding}，代表「${shieldingLabelZh(state.params.shielding)}」）→
-    以逐時 <code>shortwave_radiation</code> 計算 Sol-air temperature：<code>T<sub>sol</sub> = T<sub>amb</sub> + α<sub>s</sub>·G/(h<sub>conv</sub>+h<sub>rad</sub>)</code>
-    （α<sub>s</sub> = ${state.params.absorptance}）→
-    篩選氣溫 ≥ P90 的小時，統計同時段風速 P10 / 中位數 / 靜風率（高溫 concurrent wind）。`;
+    <ol ${captStyle}>
+      <li><b>氣候資料取得</b>：透過 Open-Meteo Historical API 抓取近 ${yrs} 年（${a.period.start} → ${a.period.end}）逐時資料，共約 ${sampleN.toLocaleString()} 筆。</li>
+      <li><b>氣溫統計</b>：統計 2 m 氣溫（離地 2 m 高度，氣象標準觀測高度，ERA5 變數 <code>temperature_2m</code>）的平均、P50、P95、最高值與超過 50/55°C 的時數。</li>
+      <li><b>風速統計</b>：將 10 m 風速過濾靜風（&lt; 0.5 m/s）後取算術平均，得到 V<sub>10</sub>。</li>
+      <li><b>Power Law 風速修正</b>：修正至安裝高度 h = ${state.params.height} m：<br>
+        <code>V<sub>h</sub> = V<sub>10</sub> × (h/10)<sup>α</sup> × s<sub>shield</sub></code><br>
+        α = ${state.params.alpha}（${terrainLabelZh(state.params.alpha)}），s<sub>shield</sub> = ${state.params.shielding}（${shieldingLabelZh(state.params.shielding)}）。</li>
+      <li><b>Sol-air temperature（等效太陽空氣溫度）</b>：逐時計算機殼考慮日射後的等效環境溫度：<br>
+        <code>T<sub>sol</sub> = T<sub>amb</sub> + α<sub>s</sub> × G / (h<sub>conv</sub> + h<sub>rad</sub>)</code><br>
+        · <b>α<sub>s</sub></b> = ${state.params.absorptance}：機殼表面太陽吸收率（1 − α<sub>s</sub> = 反射率）<br>
+        · <b>G</b>：ERA5 逐時短波輻射量 <code>shortwave_radiation</code>（W/m²），含直射＋散射<br>
+        · <b>h<sub>conv</sub></b> = 5.7 + 3.8 × V（W/m²·°C）：ASHRAE 簡化平板強制對流係數，V 為該小時風速<br>
+        · <b>h<sub>rad</sub></b> ≈ 6.0 W/m²·°C：線性化輻射換熱係數（假設表面溫度 ~40°C）<br>
+        計算後排序取 P95 / Max 等統計量。</li>
+      <li><b>高溫時段風速（concurrent wind）</b>：篩選氣溫 ≥ P90（${fmt(a.tStats.p90)}°C）的所有小時，統計同時段風速的 P10（保守值）、中位數（典型值）及靜風率（&lt; 0.5 m/s 佔比），用以評估「高溫＋低風速」同時出現的 worst-case。</li>
+    </ol>`;
   } else {
     capt.innerHTML = `<strong>Calculation flow:</strong>
-    Fetch ${yrs} years of hourly Open-Meteo data (${a.period.start} → ${a.period.end}) →
-    compute mean, P50, P95, max of 2 m temperature (air temperature at 2 m above ground level, standard meteorological observation height, ERA5 variable <code>temperature_2m</code>) and hours above 50/55°C →
-    filter 10 m winds below 0.5 m/s (calm) and take the arithmetic mean V<sub>10</sub> →
-    apply Power Law correction to installation height h = ${state.params.height} m:
-    <code>V<sub>h</sub> = V<sub>10</sub> × (h/10)<sup>α</sup> × s<sub>shield</sub></code>
-    (α = ${state.params.alpha}, ${terrainLabelEn(state.params.alpha)}; s<sub>shield</sub> = ${state.params.shielding}, ${shieldingLabelEn(state.params.shielding)}) →
-    compute Sol-air temperature per hour: <code>T<sub>sol</sub> = T<sub>amb</sub> + α<sub>s</sub>·G/(h<sub>conv</sub>+h<sub>rad</sub>)</code>
-    (α<sub>s</sub> = ${state.params.absorptance}) →
-    filter hours where T ≥ P90 and compute concurrent wind P10 / median / calm fraction.`;
+    <ol ${captStyle}>
+      <li><b>Climate data</b>: Fetch ${yrs} years of hourly data (${a.period.start} → ${a.period.end}) from Open-Meteo Historical API, ~${sampleN.toLocaleString()} records.</li>
+      <li><b>Temperature statistics</b>: Compute mean, P50, P95, max of 2 m air temperature (<code>temperature_2m</code>, standard meteorological height) and hours above 50/55°C.</li>
+      <li><b>Wind statistics</b>: Filter 10 m winds below 0.5 m/s (calm), compute arithmetic mean V<sub>10</sub>.</li>
+      <li><b>Power Law wind correction</b>: Correct to installation height h = ${state.params.height} m:<br>
+        <code>V<sub>h</sub> = V<sub>10</sub> × (h/10)<sup>α</sup> × s<sub>shield</sub></code><br>
+        α = ${state.params.alpha} (${terrainLabelEn(state.params.alpha)}), s<sub>shield</sub> = ${state.params.shielding} (${shieldingLabelEn(state.params.shielding)}).</li>
+      <li><b>Sol-air temperature</b>: Compute hourly effective ambient temperature including solar heating:<br>
+        <code>T<sub>sol</sub> = T<sub>amb</sub> + α<sub>s</sub> × G / (h<sub>conv</sub> + h<sub>rad</sub>)</code><br>
+        · <b>α<sub>s</sub></b> = ${state.params.absorptance}: enclosure surface solar absorptance (1 − α<sub>s</sub> = reflectance)<br>
+        · <b>G</b>: ERA5 hourly shortwave radiation <code>shortwave_radiation</code> (W/m²), direct + diffuse<br>
+        · <b>h<sub>conv</sub></b> = 5.7 + 3.8 × V (W/m²·°C): ASHRAE simplified flat-plate forced convection coefficient, V = hourly wind speed<br>
+        · <b>h<sub>rad</sub></b> ≈ 6.0 W/m²·°C: linearized radiative heat transfer coefficient (~40°C surface)<br>
+        Sort results to obtain P95 / Max statistics.</li>
+      <li><b>High-temp concurrent wind</b>: Filter hours where T ≥ P90 (${fmt(a.tStats.p90)}°C), compute concurrent wind P10 (conservative), median (typical), and calm fraction (&lt; 0.5 m/s), to assess worst-case "high temp + low wind" joint probability.</li>
+    </ol>`;
   }
   $('#summary-period').textContent = `${a.period.start} → ${a.period.end}`;
 }
@@ -2412,13 +2427,13 @@ function renderRecList(a) {
           const htwP10h = powerLawWind(htw.p10, state.params.height, state.params.alpha, state.params.shielding);
           if (state.lang === 'zh') {
             return `<b>Sol-air temperature</b>：考慮太陽輻射對機殼加熱後的等效環境溫度（α<sub>s</sub> = ${state.params.absorptance}）。<br>` +
-              `全年 P95 = ${fmt(sa.p95)}°C（比氣溫 P95 高 ${(sa.p95 - a.tStats.p95).toFixed(1)} K）；熱季 P95 = ${fmt(hsa.p95)}°C。<br>` +
+              `全年 P95 = ${fmt(sa.p95)}°C（比氣溫 P95 高 ${(sa.p95 - a.tStats.p95).toFixed(1)}°C）；熱季 P95 = ${fmt(hsa.p95)}°C。<br>` +
               `<b>高溫時段風速</b>：篩選氣溫 ≥ P90（${fmt(a.tStats.p90)}°C）的 ${htw.count.toLocaleString()} 個小時：<br>` +
               `P10 = ${fmt(htw.p10)} m/s（@${state.params.height}m: ${fmt(htwP10h)} m/s）、中位數 = ${fmt(htw.median)} m/s、靜風率 = ${(htw.calmFrac*100).toFixed(0)}%。<br>` +
               `<span style="font-size:11px;color:var(--text-tertiary);">P10 風速代表「高溫時段中，90% 的時間風速都高於此值」，適合作為保守散熱設計輸入。</span>`;
           } else {
             return `<b>Sol-air temperature</b>: effective ambient including solar heating (α<sub>s</sub> = ${state.params.absorptance}).<br>` +
-              `Annual P95 = ${fmt(sa.p95)}°C (+${(sa.p95 - a.tStats.p95).toFixed(1)} K vs air P95); hot-season P95 = ${fmt(hsa.p95)}°C.<br>` +
+              `Annual P95 = ${fmt(sa.p95)}°C (+${(sa.p95 - a.tStats.p95).toFixed(1)}°C vs air P95); hot-season P95 = ${fmt(hsa.p95)}°C.<br>` +
               `<b>High-temp concurrent wind</b>: filtered ${htw.count.toLocaleString()} hours with T ≥ P90 (${fmt(a.tStats.p90)}°C):<br>` +
               `P10 = ${fmt(htw.p10)} m/s (@${state.params.height}m: ${fmt(htwP10h)} m/s), median = ${fmt(htw.median)} m/s, calm = ${(htw.calmFrac*100).toFixed(0)}%.<br>` +
               `<span style="font-size:11px;color:var(--text-tertiary);">P10 wind = "90% of high-temp hours have wind above this value" — suitable for conservative thermal design input.</span>`;
@@ -2520,8 +2535,8 @@ function renderRecList(a) {
   }
   if (a.tStats.p95 < 35) {
     alertsHtml += `<div class="alert alert-success"><span class="icon">✓</span><span class="msg">${state.lang === 'zh'
-      ? `P95 環境溫度僅 ${a.tStats.p95.toFixed(1)}°C，相較 55°C 設計有 ${(55 - a.tStats.p95).toFixed(0)}K 餘裕，散熱規格有縮減空間。`
-      : `P95 ambient is only ${a.tStats.p95.toFixed(1)}°C — ${(55 - a.tStats.p95).toFixed(0)} K of margin vs the 55°C design. Significant volume reduction possible.`}</span></div>`;
+      ? `P95 環境溫度僅 ${a.tStats.p95.toFixed(1)}°C，相較 55°C 設計有 ${(55 - a.tStats.p95).toFixed(0)}°C 餘裕，散熱規格有縮減空間。`
+      : `P95 ambient is only ${a.tStats.p95.toFixed(1)}°C — ${(55 - a.tStats.p95).toFixed(0)}°C of margin vs the 55°C design. Significant volume reduction possible.`}</span></div>`;
   }
   alerts.innerHTML = alertsHtml;
 }
@@ -2568,17 +2583,17 @@ function renderMarginRecovery(a) {
 
   const cls = volumeSaving > 0.4 ? 'alert-success' : volumeSaving > 0.15 ? 'alert-info' : 'alert-warn';
   const msg = state.lang === 'zh'
-    ? `相較傳統 55°C/0 m/s 假設，本站點實際包絡可回收約 <strong>${tempMargin.toFixed(1)} K</strong> 環境溫度餘裕，
+    ? `相較傳統 55°C/0 m/s 假設，本站點實際包絡可回收約 <strong>${tempMargin.toFixed(1)}°C</strong> 環境溫度餘裕，
        加上 ${Vh_real.toFixed(2)} m/s 風速帶來 ×${h_boost.toFixed(2)} 對流增益，
        <strong>散熱器體積估計可縮減 ${(volumeSaving * 100).toFixed(0)}%</strong>（線性近似，需 CFD 驗證）。`
-    : `Compared to the 55°C/0 m/s envelope, this site recovers <strong>${tempMargin.toFixed(1)} K</strong> of ambient margin.
+    : `Compared to the 55°C/0 m/s envelope, this site recovers <strong>${tempMargin.toFixed(1)}°C</strong> of ambient margin.
        With ${Vh_real.toFixed(2)} m/s wind providing ×${h_boost.toFixed(2)} convection boost,
        <strong>heat sink volume could be reduced by an estimated ${(volumeSaving * 100).toFixed(0)}%</strong> (linear approximation; CFD verification required).`;
 
   $('#margin-results').innerHTML = `
     <div class="alert ${cls}"><span class="icon">Σ</span><span class="msg">${msg}</span></div>
     <div class="grid grid-3" style="margin-top:14px;">
-      <div class="stat"><div class="stat-label">Ambient ΔT recovered</div><div class="stat-value num">${tempMargin.toFixed(1)}<span class="unit">K</span></div></div>
+      <div class="stat"><div class="stat-label">Ambient ΔT recovered</div><div class="stat-value num">${tempMargin.toFixed(1)}<span class="unit">°C</span></div></div>
       <div class="stat"><div class="stat-label">θ_CA headroom</div><div class="stat-value num">+${thetaMargin.toFixed(2)}<span class="unit">K/W</span></div></div>
       <div class="stat stat-accent"><div class="stat-label">Est. Volume Reduction</div><div class="stat-value num">${(volumeSaving * 100).toFixed(0)}<span class="unit">%</span></div></div>
     </div>
@@ -2739,7 +2754,7 @@ async function exportPDF() {
       ['P95 temp', `${a.tStats.p95.toFixed(1)} °C`],
       ['Historical max', `${a.tStats.max.toFixed(1)} °C`],
       ['Hot-season P95 temp', `${a.hotTempStats.p95.toFixed(1)} °C`],
-      ['Sol-air P95 (αs=' + state.params.absorptance + ')', `${a.solAirStats.p95.toFixed(1)} °C (+${(a.solAirStats.p95 - a.tStats.p95).toFixed(1)} K)`],
+      ['Sol-air P95 (αs=' + state.params.absorptance + ')', `${a.solAirStats.p95.toFixed(1)} °C (+${(a.solAirStats.p95 - a.tStats.p95).toFixed(1)}°C)`],
       ['Hot-season Sol-air P95', `${a.hotSolAirStats.p95.toFixed(1)} °C`],
       ['Mean wind @10 m', `${a.v10mean.toFixed(2)} m/s`],
       ['Corrected wind @' + state.params.height + 'm', `${a.vh.toFixed(2)} m/s`],
@@ -2777,7 +2792,7 @@ async function exportPDF() {
     pdf.text('Margin Recovery (vs 55°C / 0 m/s envelope)', 15, y); y += 7;
     pdf.setFontSize(10);
     pdf.text(`Component: Tj_max=${tjmax}°C, θJC=${thetajc} K/W, Q=${Q} W`, 15, y); y += 5;
-    pdf.text(`Ambient ΔT recovered: ${tempMargin.toFixed(1)} K`, 15, y); y += 5;
+    pdf.text(`Ambient ΔT recovered: ${tempMargin.toFixed(1)} °C`, 15, y); y += 5;
     pdf.text(`Forced convection boost: ×${h_boost.toFixed(2)}`, 15, y); y += 5;
     pdf.text(`Estimated heat sink volume reduction: ${(volSaving * 100).toFixed(0)}%`, 15, y); y += 10;
 
