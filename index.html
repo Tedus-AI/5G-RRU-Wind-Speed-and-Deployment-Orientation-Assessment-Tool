@@ -1790,27 +1790,35 @@ function renderSummaryCards(a) {
   }
   const htwP10h = powerLawWind(htw.p10, state.params.height, state.params.alpha, state.params.shielding);
   const htwMedianH = powerLawWind(htw.median, state.params.height, state.params.alpha, state.params.shielding);
+  // Hot months label (e.g. "6·7·8 月" or "Jun·Jul·Aug")
+  const MONTH_ZH = ['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const MONTH_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const hotMonthLabel = zh
+    ? a.hotMonths.map(m => MONTH_ZH[m]).join('·') + ' 月'
+    : a.hotMonths.map(m => MONTH_EN[m]).join(' · ');
+  // Hot-season V10 (before Power Law)
+  const hotV10 = a.hotRose.meanSpeed;
   row2.innerHTML = `
     <div class="stat stat-accent">
-      <div class="stat-label">${zh ? 'Sol-air P95' : 'Sol-air P95'}</div>
-      <div class="stat-value num">${fmt(sa.p95)}<span class="unit">°C</span></div>
-      <div class="stat-foot">${zh
-        ? `考慮日射的等效環境溫度<br>α<sub>s</sub> = ${absLabel}，vs 氣溫 P95 ${fmt(ts.p95)}°C<br>ΔT<sub>sol</sub> = +${(sa.p95 - ts.p95).toFixed(1)}°C`
-        : `Effective ambient incl. solar<br>α<sub>s</sub> = ${absLabel}, vs air P95 ${fmt(ts.p95)}°C<br>ΔT<sub>sol</sub> = +${(sa.p95 - ts.p95).toFixed(1)}°C`}</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">${zh ? 'Sol-air 極端' : 'Sol-air Max'}</div>
-      <div class="stat-value num">${fmt(sa.max)}<span class="unit">°C</span></div>
-      <div class="stat-foot">${zh
-        ? `歷史最高等效溫度<br>vs 氣溫最高 ${fmt(ts.max)}°C (+${(sa.max - ts.max).toFixed(1)}°C)`
-        : `Historical worst sol-air<br>vs air max ${fmt(ts.max)}°C (+${(sa.max - ts.max).toFixed(1)}°C)`}</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">${zh ? '熱季 Sol-air P95' : 'Hot-season Sol-air P95'}</div>
+      <div class="stat-label">${zh ? '熱季 Sol-air P95 ★' : 'Hot-season Sol-air P95 ★'}</div>
       <div class="stat-value num">${fmt(hsa.p95)}<span class="unit">°C</span></div>
       <div class="stat-foot">${zh
-        ? `最熱 3 個月的 Sol-air P95<br>散熱設計建議參考值`
-        : `Sol-air P95 for hottest 3 months<br>Recommended design reference`}</div>
+        ? `最熱 3 個月（<b>${hotMonthLabel}</b>）含日射<br>α<sub>s</sub> = ${absLabel}，散熱設計建議參考值<br>vs 氣溫 P95 ${fmt(a.hotTempStats.p95)}°C (+${(hsa.p95 - a.hotTempStats.p95).toFixed(1)}°C)`
+        : `Hottest 3 months (<b>${hotMonthLabel}</b>) incl. solar<br>α<sub>s</sub> = ${absLabel}, recommended design ref.<br>vs air P95 ${fmt(a.hotTempStats.p95)}°C (+${(hsa.p95 - a.hotTempStats.p95).toFixed(1)}°C)`}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">${zh ? '熱季氣溫 P95' : 'Hot-season Air P95'}</div>
+      <div class="stat-value num">${fmt(a.hotTempStats.p95)}<span class="unit">°C</span></div>
+      <div class="stat-foot">${zh
+        ? `最熱 3 個月（<b>${hotMonthLabel}</b>）<br>不含日射的純氣溫 P95<br>用於散熱餘裕回收基準`
+        : `Hottest 3 months (<b>${hotMonthLabel}</b>)<br>Air-only P95 (no solar)<br>Used as margin recovery baseline`}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">${zh ? '熱季平均風速' : 'Hot-season Mean Wind'}</div>
+      <div class="stat-value num">${fmt(hotV10)}<span class="unit">m/s</span></div>
+      <div class="stat-foot">${zh
+        ? `最熱 3 個月（<b>${hotMonthLabel}</b>）<br>排除靜風 @10m<br>@${state.params.height}m: ${fmt(a.vh_hot)} m/s`
+        : `Hottest 3 months (<b>${hotMonthLabel}</b>)<br>Excl. calm @10m<br>@${state.params.height}m: ${fmt(a.vh_hot)} m/s`}</div>
     </div>
     <div class="stat stat-warn">
       <div class="stat-label">${zh ? '高溫時段 P10 風速' : 'High-temp P10 Wind'}</div>
@@ -2554,22 +2562,16 @@ function renderMarginRecovery(a) {
   // theta_CA = (Tj_max - T_amb) / Q - theta_jc
   const thetaCA_orig = (tjmax - T_amb_orig) / Q - thetajc;
 
-  // Realistic envelope: T_p95 (or hot stats P95), Vh
-  const T_amb_real = a.hotTempStats.p95;
+  // Realistic envelope: hot-season Sol-air P95 (includes solar heating), Vh
+  const T_amb_real = a.hotSolAirStats.p95;
   const Vh_real = a.vh_hot;
   const thetaCA_real = (tjmax - T_amb_real) / Q - thetajc;
 
   // Forced convection rough boost factor
   // h_forced/h_natural ≈ sqrt(1 + Vh/0.5)
   const h_boost = Math.sqrt(1 + Vh_real / 0.5);
-  // theta_HS scales as 1/h, so effective thetaCA improvement
   const thetaCA_real_boosted = thetaCA_real * h_boost;
-  const thetaCA_used_orig = thetaCA_orig; // baseline natural at 55°C/0
-  // The "effective margin" is how much theta_CA is now allowed:
-  // Compared to thetaCA_orig, the heat sink can have higher theta_CA.
-  // But we need to account for: the new MAXIMUM allowed theta_CA (not boosted - that's a saving)
-  // Margin recovered (K equivalent at junction): Q * (thetaCA_real - thetaCA_orig)
-  const tempMargin = T_amb_orig - T_amb_real; // K saved on ambient
+  const tempMargin = T_amb_orig - T_amb_real;
   const thetaMargin = thetaCA_real - thetaCA_orig; // K/W of allowable theta_CA increase
 
   // Heat sink size reduction estimate (very rough, linear with theta_HS)
@@ -2578,7 +2580,7 @@ function renderMarginRecovery(a) {
   const volumeSaving = Math.max(0, Math.min(0.7, 1 - sinkSizeRatio)); // cap at 70%
 
   $('#margin-orig-detail').innerHTML = `θ<sub>CA</sub> required = <span class="num">${thetaCA_orig.toFixed(2)}</span> K/W`;
-  $('#margin-realistic-env').innerHTML = `T<sub>amb</sub> = ${T_amb_real.toFixed(1)}°C / V = ${Vh_real.toFixed(2)} m/s`;
+  $('#margin-realistic-env').innerHTML = `T<sub>sol-air</sub> = ${T_amb_real.toFixed(1)}°C / V = ${Vh_real.toFixed(2)} m/s`;
   $('#margin-real-detail').innerHTML = `θ<sub>CA</sub> available = <span class="num">${thetaCA_real.toFixed(2)}</span> K/W (×${h_boost.toFixed(2)} forced boost)`;
 
   const cls = volumeSaving > 0.4 ? 'alert-success' : volumeSaving > 0.15 ? 'alert-info' : 'alert-warn';
@@ -2675,7 +2677,7 @@ function saveSite() {
   const tjmax = parseFloat($('#margin-tjmax').value);
   const thetajc = parseFloat($('#margin-thetajc').value);
   const Q = parseFloat($('#margin-power').value);
-  const T_amb_real = a.hotTempStats.p95;
+  const T_amb_real = a.hotSolAirStats.p95;
   const thetaCA_orig = (tjmax - 55) / Q - thetajc;
   const thetaCA_real = (tjmax - T_amb_real) / Q - thetajc;
   const h_boost = Math.sqrt(1 + a.vh_hot / 0.5);
@@ -2780,7 +2782,7 @@ async function exportPDF() {
     const tjmax = parseFloat($('#margin-tjmax').value);
     const thetajc = parseFloat($('#margin-thetajc').value);
     const Q = parseFloat($('#margin-power').value);
-    const T_amb_real = a.hotTempStats.p95;
+    const T_amb_real = a.hotSolAirStats.p95;
     const tempMargin = 55 - T_amb_real;
     const h_boost = Math.sqrt(1 + a.vh_hot / 0.5);
     const thetaCA_orig = (tjmax - 55) / Q - thetajc;
