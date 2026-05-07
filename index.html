@@ -880,7 +880,7 @@
         Sol-air temperature 代表考慮太陽直射後的等效環境溫度，用於評估日射對機殼表面的加熱效應。</p>
         <p><strong>High-temp concurrent wind:</strong> 取氣溫 ≥ P90 的所有小時，統計對應風速的 P10（保守值）、中位數（典型值）與靜風率。
         此方法捕捉「高溫＋低風速」同時出現的 joint probability，比分開統計更接近真實 worst-case operating envelope。</p>
-        <p><strong>Margin recovery (K):</strong> <code>ΔT = (55 − T_p95)</code>，搭配風速增益後等效散熱餘裕。</p>
+        <p><strong>Margin recovery (°C):</strong> <code>ΔT = (55 − T_sol-air,P95)</code>，其中 T<sub>sol-air,P95</sub> 為熱季 Sol-air P95（已含日射效應），搭配風速增益後等效散熱餘裕。</p>
         <p><strong>Volume saving heuristic:</strong> 假設散熱器熱阻 <code>θ_HS ∝ 1/h × 1/A_fin</code>，鰭片面積與體積近似線性，
         因此 <code>ΔV/V ≈ 1 − θ_HS,new / θ_HS,orig</code>。實務上仍需 CFD 驗證。</p>
       </div>
