@@ -1810,8 +1810,8 @@ function renderSummaryCards(a) {
       <div class="stat-label">${zh ? '熱季氣溫 P95' : 'Hot-season Air P95'}</div>
       <div class="stat-value num">${fmt(a.hotTempStats.p95)}<span class="unit">°C</span></div>
       <div class="stat-foot">${zh
-        ? `最熱 3 個月（<b>${hotMonthLabel}</b>）<br>不含日射的純氣溫 P95<br>用於散熱餘裕回收基準`
-        : `Hottest 3 months (<b>${hotMonthLabel}</b>)<br>Air-only P95 (no solar)<br>Used as margin recovery baseline`}</div>
+        ? `最熱 3 個月（<b>${hotMonthLabel}</b>）<br>不含日射的純氣溫 P95<br>與左方 Sol-air P95 對比可看出日射加熱效應`
+        : `Hottest 3 months (<b>${hotMonthLabel}</b>)<br>Air-only P95 (no solar)<br>Compare with Sol-air P95 to see solar heating effect`}</div>
     </div>
     <div class="stat">
       <div class="stat-label">${zh ? '熱季平均風速' : 'Hot-season Mean Wind'}</div>
