@@ -2488,8 +2488,8 @@ function renderSummaryCards(a) {
       <div class="stat-label">${zh ? '高溫時段靜風率' : 'High-temp Calm %'}</div>
       <div class="stat-value num">${(htw.calmFrac * 100).toFixed(0)}<span class="unit">%</span></div>
       <div class="stat-foot">${zh
-        ? `氣溫 ≥ P90 且風速 < 0.5 m/s<br>共 ${htw.count.toLocaleString()} 小時分析<br>${htw.calmFrac > 0.3 ? '⚠ 高溫低風速頻繁，自然對流為主' : '強制對流可利用'}`
-        : `T ≥ P90 with wind < 0.5 m/s<br>${htw.count.toLocaleString()} hours analyzed<br>${htw.calmFrac > 0.3 ? '⚠ Frequent high-temp calm — natural conv. dominant' : 'Forced convection viable'}`}</div>
+        ? `氣溫 ≥ P90 且風速 < 0.5 m/s<br>共 ${htw.count.toLocaleString()} 小時分析<br>${htw.calmFrac > 0.3 ? '⚠ 高溫低風速頻繁，自然對流為主' : '強制對流可利用'}<br><span style="font-size:11px;opacity:0.6;">門檻說明：靜風率 ≥ 30% 表示高溫時段有近 1/3 時間無有效風速，強制對流不可靠，應以純自然對流為設計基準；< 30% 則多數高溫時段仍有風，可納入強制對流設計。</span>`
+        : `T ≥ P90 with wind < 0.5 m/s<br>${htw.count.toLocaleString()} hours analyzed<br>${htw.calmFrac > 0.3 ? '⚠ Frequent high-temp calm — natural conv. dominant' : 'Forced convection viable'}<br><span style="font-size:11px;opacity:0.6;">Threshold: calm ≥ 30% means ~1/3 of high-temp hours lack effective wind — forced convection unreliable, design for natural convection; < 30% means wind is available most of the time.</span>`}</div>
     </div>
   `;
   // Calculation flow caption below the grids
