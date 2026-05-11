@@ -2029,6 +2029,7 @@ async function fetchBuildingDensity(lat, lon, radius = 200) {
 
 function suggestShielding(densityResult) {
   const el = $('#shield-suggest');
+  state.buildingDensity = densityResult || null;  // persist for alert annotation
   if (!densityResult || densityResult.density === undefined) {
     el.style.display = 'none';
     return;
@@ -3252,9 +3253,15 @@ function renderRecList(a) {
       : `Historical data shows ~${(a.tStats.hoursAbove[55] / a.tStats.yearsCovered).toFixed(0)} hours/year above 55°C. The traditional 55°C envelope is still relevant.`}</span></div>`;
   }
   if (state.params.shielding < 0.5) {
+    const bd = state.buildingDensity;
+    const osmNote = (bd && bd.density !== undefined)
+      ? (state.lang === 'zh'
+        ? `<br><span style="font-size:11px;color:var(--ink-3);">遮蔽係數由 OSM 建築密度分析建議（半徑 ${bd.radius}m 內 ${bd.count} 棟建築，覆蓋率 ${(bd.density*100).toFixed(0)}%）。</span>`
+        : `<br><span style="font-size:11px;color:var(--ink-3);">Shielding factor suggested by OSM building density analysis (${bd.count} buildings within ${bd.radius}m, ${(bd.density*100).toFixed(0)}% coverage).</span>`)
+      : '';
     alertsHtml += `<div class="alert alert-error"><span class="icon">!</span><span class="msg">${state.lang === 'zh'
       ? '嚴重遮蔽會造成風場停滯與熱累積，建議改用導流罩或提高架設位置。'
-      : 'Heavy shielding causes stagnation and heat buildup. Consider air deflectors or raising mount height.'}</span></div>`;
+      : 'Heavy shielding causes stagnation and heat buildup. Consider air deflectors or raising mount height.'}${osmNote}</span></div>`;
   }
   const alertSolAirP95 = a.hotSolAirStats.p95;
   if (alertSolAirP95 < 45) {
