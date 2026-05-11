@@ -3188,16 +3188,15 @@ function renderRecList(a) {
     pop = document.createElement('div');
     pop.id = 'badge-popover';
     pop.style.cssText = `position:absolute;top:calc(100% + 6px);right:0;z-index:999;
-      background:#1a2030;border:1px solid ${color};border-radius:var(--r-md);
+      background:var(--bg-panel);border:1px solid ${color};border-radius:var(--r-md);
       padding:14px 16px;min-width:320px;max-width:400px;font-size:12px;line-height:1.7;
-      color:var(--text-primary);box-shadow:0 8px 32px rgba(0,0,0,0.7);
-      backdrop-filter:none;opacity:1;`;
+      color:var(--ink-1);box-shadow:0 4px 24px rgba(70,55,30,0.18);`;
     const tooltipContent = state.lang === 'zh'
       ? `<div style="font-weight:600;margin-bottom:8px;color:${color};">鰭片方向對齊度 = ${(q*100).toFixed(0)}%（與風軸夾角 ${r.bestDiff.toFixed(0)}°）</div>
-         <div style="margin-bottom:8px;padding:8px 10px;background:rgba(255,255,255,0.04);border-radius:6px;font-size:11px;line-height:1.8;">
+         <div style="margin-bottom:8px;padding:8px 10px;background:var(--bg-panel-2);border-radius:6px;font-size:11px;line-height:1.8;">
            <div style="font-weight:600;margin-bottom:4px;">計算公式：</div>
-           <div style="font-family:var(--font-mono);color:var(--accent);">對齊度 = max(0, 1 − 夾角 / 45°) × 100%</div>
-           <div style="margin-top:6px;color:var(--text-secondary);">
+           <div style="font-family:var(--font-mono);color:var(--signal);">對齊度 = max(0, 1 − 夾角 / 45°) × 100%</div>
+           <div style="margin-top:6px;color:var(--ink-2);">
              <b>夾角</b>：在天線扇區 ±45° 旋轉範圍內，能找到的鰭片通道方向與主導風軸之間的最小角度差。<br>
              <b>45°</b> 為分母：因為扇區約束允許 ±45° 旋轉，且風軸具雙向性（檢查 0° 和 180° 兩端），所以數學上最大偏差就是 45°。<br>
              <b>100%</b> = 夾角 0°，鰭片完全平行風向，氣流直穿鰭片通道。<br>
@@ -3210,15 +3209,15 @@ function renderRecList(a) {
            <span style="color:var(--warn);">■</span> <b>普通 MODERATE</b>：對齊度 40–70%（夾角 13.5–27°）<br>
            <span style="color:var(--error);">■</span> <b>差 POOR</b>：對齊度 &lt; 40%（夾角 &gt; 27°）
          </div>
-         <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border-low);color:var(--text-secondary);">
+         <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--rule);color:var(--ink-2);">
            ⚠ 這不是「散熱差」，而是「在天線扇區約束下，鰭片無法與主風向良好對齊」。<br>
            POOR 情況下建議純以自然對流為散熱設計基準，風為額外 bonus。
          </div>`
       : `<div style="font-weight:600;margin-bottom:8px;color:${color};">Fin-to-wind alignment = ${(q*100).toFixed(0)}% (angle ${r.bestDiff.toFixed(0)}° off wind axis)</div>
-         <div style="margin-bottom:8px;padding:8px 10px;background:rgba(255,255,255,0.04);border-radius:6px;font-size:11px;line-height:1.8;">
+         <div style="margin-bottom:8px;padding:8px 10px;background:var(--bg-panel-2);border-radius:6px;font-size:11px;line-height:1.8;">
            <div style="font-weight:600;margin-bottom:4px;">Formula:</div>
-           <div style="font-family:var(--font-mono);color:var(--accent);">Alignment = max(0, 1 − angle / 45°) × 100%</div>
-           <div style="margin-top:6px;color:var(--text-secondary);">
+           <div style="font-family:var(--font-mono);color:var(--signal);">Alignment = max(0, 1 − angle / 45°) × 100%</div>
+           <div style="margin-top:6px;color:var(--ink-2);">
              <b>Angle</b>: minimum angular difference between fin channel direction and prevailing wind axis, within the sector ±45° rotation range.<br>
              <b>45°</b> denominator: sector constraint allows ±45° rotation, and the wind axis is bidirectional (both 0° and 180° ends checked), so 45° is the mathematical worst case.<br>
              <b>100%</b> = 0° off, fins perfectly parallel to wind, airflow passes straight through fin channels.<br>
@@ -3231,7 +3230,7 @@ function renderRecList(a) {
            <span style="color:var(--warn);">■</span> <b>MODERATE</b>: 40–70% (13.5–27° off)<br>
            <span style="color:var(--error);">■</span> <b>POOR</b>: &lt; 40% (&gt; 27° off)
          </div>
-         <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border-low);color:var(--text-secondary);">
+         <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--rule);color:var(--ink-2);">
            ⚠ "POOR" means fin direction vs wind is suboptimal under sector constraint — NOT that the cooling design is bad.<br>
            In POOR cases, design for natural convection only; treat wind as bonus.
          </div>`;
