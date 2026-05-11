@@ -3256,10 +3256,11 @@ function renderRecList(a) {
       ? '嚴重遮蔽會造成風場停滯與熱累積，建議改用導流罩或提高架設位置。'
       : 'Heavy shielding causes stagnation and heat buildup. Consider air deflectors or raising mount height.'}</span></div>`;
   }
-  if (a.tStats.p95 < 35) {
+  const alertSolAirP95 = a.hotSolAirStats.p95;
+  if (alertSolAirP95 < 45) {
     alertsHtml += `<div class="alert alert-success"><span class="icon">✓</span><span class="msg">${state.lang === 'zh'
-      ? `P95 環境溫度僅 ${a.tStats.p95.toFixed(1)}°C，相較 55°C 設計有 ${(55 - a.tStats.p95).toFixed(0)}°C 餘裕，散熱規格有縮減空間。`
-      : `P95 ambient is only ${a.tStats.p95.toFixed(1)}°C — ${(55 - a.tStats.p95).toFixed(0)}°C of margin vs the 55°C design. Significant volume reduction possible.`}</span></div>`;
+      ? `熱季 Sol-air P95 僅 ${alertSolAirP95.toFixed(1)}°C，相較 55°C 設計有 ${(55 - alertSolAirP95).toFixed(0)}°C 餘裕，散熱規格有縮減空間。`
+      : `Hot-season Sol-air P95 is only ${alertSolAirP95.toFixed(1)}°C — ${(55 - alertSolAirP95).toFixed(0)}°C of margin vs the 55°C design. Significant volume reduction possible.`}</span></div>`;
   }
   alerts.innerHTML = alertsHtml;
 }
