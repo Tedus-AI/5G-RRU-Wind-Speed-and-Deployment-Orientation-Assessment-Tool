@@ -277,30 +277,6 @@ body {
     0 2px 4px rgba(70,55,30,0.06);
 }
 
-#topbar .gh-link {
-  color: var(--ink-2);
-  text-decoration: none;
-  font-size: 12px;
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--rule);
-  background: var(--bg-panel);
-  font-family: var(--font-sans);
-  font-weight: 500;
-  letter-spacing: 0;
-  transition: var(--t-fast);
-  box-shadow:
-    0 1px 0 0 rgba(255,255,255,0.7) inset,
-    0 1px 2px rgba(70,55,30,0.05);
-}
-#topbar .gh-link:hover {
-  color: var(--signal); border-color: var(--signal-line);
-  transform: translateY(-1px);
-  box-shadow:
-    0 1px 0 0 rgba(255,255,255,0.7) inset,
-    0 2px 6px rgba(70,55,30,0.10);
-}
 
 /* =============================================================================
    APP SHELL — two-column with sticky context rail
@@ -1245,9 +1221,6 @@ footer.app-foot div + div { margin-top: 8px; color: var(--ink-2); }
       <button data-lang="en">EN</button>
     </div>
 
-    <a class="gh-link" href="https://github.com/Tedus-AI/5G-RRU-Wind-Speed-and-Deployment-Orientation-Assessment-Tool" target="_blank" rel="noopener" id="gh-link">
-      ↗ GITHUB
-    </a>
   </div>
 </header>
 
@@ -1340,6 +1313,15 @@ footer.app-foot div + div { margin-top: 8px; color: var(--ink-2); }
         </div>
 
         <div>
+          <label data-i18n="params.bandMode">頻段模式</label>
+          <div class="seg-control" id="band-mode-switch" style="margin-bottom:6px;">
+            <button data-mode="FR1">FR1 Sub-6</button>
+            <button data-mode="FR2" class="active">FR2 mmWave</button>
+          </div>
+          <p class="field-help" id="band-mode-help" data-i18n="params.bandMode.help">FR2 天線整合於機體，朝向受扇區約束 ±45°；FR1 天線外接，機體可自由旋轉</p>
+        </div>
+
+        <div id="sector-group">
           <label data-i18n="params.sector">天線扇區方位 (°)</label>
           <input type="number" id="param-sector" value="180" min="0" max="359" step="5" />
           <p class="field-help" data-i18n="params.sector.help">天線扇區指向（0=北 / 90=東 / 180=南 / 270=西）。鰭片方向會以此為約束</p>
@@ -1692,6 +1674,8 @@ const I18N = {
     'abs.aged': '白色烤漆 老化 (0.45)',
     'abs.lgray': '淺灰色 (0.50)',
     'abs.dgray': '深灰色 (0.75)',
+    'params.bandMode': '頻段模式',
+    'params.bandMode.help': 'FR2 天線整合於機體，朝向受扇區約束 ±45°；FR1 天線外接，機體可自由旋轉',
     'params.sector': '天線扇區方位 (°)',
     'params.sector.help': '天線扇區指向 (0=北 / 90=東 / 180=南 / 270=西)。鰭片方向會以此為約束',
     'params.run': '執行站點分析',
@@ -1754,6 +1738,8 @@ const I18N = {
     'abs.aged': 'White powder coat, aged (0.45)',
     'abs.lgray': 'Light gray (0.50)',
     'abs.dgray': 'Dark gray (0.75)',
+    'params.bandMode': 'Band Mode',
+    'params.bandMode.help': 'FR2: integrated antenna, orientation constrained ±45° by sector. FR1: external antenna, unit body freely orientable.',
     'params.sector': 'Antenna Sector Azimuth (°)',
     'params.sector.help': 'Antenna sector direction (0=N / 90=E / 180=S / 270=W). Constrains fin orientation.',
     'params.run': 'Run Site Analysis',
@@ -1800,7 +1786,7 @@ const state = {
   role: 'engineer',
   // current site info
   location: { lat: 25.0339, lon: 121.5645, name: 'Taipei 101' },
-  params: { height: 20, alpha: 0.14, shielding: 1.0, sector: 180, absorptance: 0.30 },
+  params: { height: 20, alpha: 0.14, shielding: 1.0, sector: 180, absorptance: 0.30, bandMode: 'FR2' },
   climate: null,        // raw API data
   analysis: null,       // computed results
   savedSites: []        // for multi-site comparison
@@ -2310,6 +2296,9 @@ function runAnalysis() {
   };
 }
 
+/* TODO [Future] 約束損失指標 (Constraint Penalty)
+   同時顯示 FR2 約束內最佳方位 vs FR1 全向最佳方位的風速差異百分比，
+   幫助使用者量化「扇區約束犧牲了多少散熱能力」。 */
 function computeRecommendations(rose, sectorAz) {
   const prevailingDeg = rose.prevailingDeg;
   const prevailingFreq = rose.prevailingFreq;
@@ -2337,19 +2326,37 @@ function computeRecommendations(rose, sectorAz) {
     const finFace = (az + 180) % 360;
     return Math.abs(((finFace - prevailingDeg + 540) % 360) - 180);
   }
+  const isFR1 = state.params.bandMode === 'FR1';
   let bestOffset = 0, bestDiff = Infinity, bestWindward = Infinity;
-  for (let off = -45; off <= 45; off += 1) {
-    const a = (sectorAz + off + 360) % 360;
-    const d1 = angleDiff(a, windFlowDeg);
-    const d2 = angleDiff(a, (windFlowDeg + 180) % 360);
-    const d = Math.min(d1, d2);
-    const ww = finWindwardAngle(a);  // lower = more windward
-    // Primary sort: smallest alignment angle. Tiebreak: prefer windward (smaller ww).
-    if (d < bestDiff || (d === bestDiff && ww < bestWindward)) {
-      bestDiff = d; bestOffset = off; bestWindward = ww;
+
+  if (isFR1) {
+    // FR1: external antenna — unit body can freely rotate 360°, no sector constraint
+    let bestAz = 0;
+    for (let az = 0; az < 360; az += 1) {
+      const d1 = angleDiff(az, windFlowDeg);
+      const d2 = angleDiff(az, (windFlowDeg + 180) % 360);
+      const d = Math.min(d1, d2);
+      const ww = finWindwardAngle(az);
+      if (d < bestDiff || (d === bestDiff && ww < bestWindward)) {
+        bestDiff = d; bestAz = az; bestWindward = ww;
+      }
     }
+    bestOffset = 0; // no sector reference in FR1
+    var recommendedAz = bestAz;
+  } else {
+    // FR2: integrated antenna — constrained ±45° from sectorAz
+    for (let off = -45; off <= 45; off += 1) {
+      const a = (sectorAz + off + 360) % 360;
+      const d1 = angleDiff(a, windFlowDeg);
+      const d2 = angleDiff(a, (windFlowDeg + 180) % 360);
+      const d = Math.min(d1, d2);
+      const ww = finWindwardAngle(a);
+      if (d < bestDiff || (d === bestDiff && ww < bestWindward)) {
+        bestDiff = d; bestOffset = off; bestWindward = ww;
+      }
+    }
+    var recommendedAz = (sectorAz + bestOffset + 360) % 360;
   }
-  const recommendedAz = (sectorAz + bestOffset + 360) % 360;
   const alignmentQuality = Math.max(0, 1 - bestDiff / 45);
 
   // Reliability of forced convection assistance
@@ -2376,7 +2383,8 @@ function computeRecommendations(rose, sectorAz) {
     alignmentQuality,
     bestDiff,
     convMode,
-    modeNote
+    modeNote,
+    isFR1
   };
 }
 
@@ -2990,24 +2998,25 @@ function renderCompass(a) {
 
   svg.appendChild(rruGroup);
 
-  // Antenna sector cone (±45° half-beamwidth) — filled wedge, matches the right-side RRU diagram style.
-  const secAng = state.params.sector;
-  const halfBeam = 45;
-  const coneR = R - 6;  // stay just inside the compass ring
-  const sa1 = (secAng - halfBeam - 90) * Math.PI / 180;
-  const sa2 = (secAng + halfBeam - 90) * Math.PI / 180;
-  const cx1 = cx + coneR * Math.cos(sa1), cy1 = cy + coneR * Math.sin(sa1);
-  const cx2 = cx + coneR * Math.cos(sa2), cy2 = cy + coneR * Math.sin(sa2);
-  const cone = document.createElementNS(NS, 'path');
-  cone.setAttribute('d', `M ${cx} ${cy} L ${cx1} ${cy1} A ${coneR} ${coneR} 0 0 1 ${cx2} ${cy2} Z`);
-  cone.setAttribute('fill', 'rgba(199,145,59,0.14)');
-  cone.setAttribute('stroke', 'rgba(199,145,59,0.55)');
-  cone.setAttribute('stroke-width', '1');
-  cone.setAttribute('stroke-dasharray', '3 3');
-  // Insert cone BEFORE the RRU group so the unit sits on top
-  svg.insertBefore(cone, rruGroup);
-
-  // (sector label removed per user request)
+  // Antenna sector cone (±45° half-beamwidth) — only for FR2 (integrated antenna)
+  const isFR1Mode = state.params.bandMode === 'FR1';
+  if (!isFR1Mode) {
+    const secAng = state.params.sector;
+    const halfBeam = 45;
+    const coneR = R - 6;  // stay just inside the compass ring
+    const sa1 = (secAng - halfBeam - 90) * Math.PI / 180;
+    const sa2 = (secAng + halfBeam - 90) * Math.PI / 180;
+    const cx1 = cx + coneR * Math.cos(sa1), cy1 = cy + coneR * Math.sin(sa1);
+    const cx2 = cx + coneR * Math.cos(sa2), cy2 = cy + coneR * Math.sin(sa2);
+    const cone = document.createElementNS(NS, 'path');
+    cone.setAttribute('d', `M ${cx} ${cy} L ${cx1} ${cy1} A ${coneR} ${coneR} 0 0 1 ${cx2} ${cy2} Z`);
+    cone.setAttribute('fill', 'rgba(199,145,59,0.14)');
+    cone.setAttribute('stroke', 'rgba(199,145,59,0.55)');
+    cone.setAttribute('stroke-width', '1');
+    cone.setAttribute('stroke-dasharray', '3 3');
+    // Insert cone BEFORE the RRU group so the unit sits on top
+    svg.insertBefore(cone, rruGroup);
+  }
 
   // Legend below compass
   const compassWrap = svg.parentElement;
@@ -3016,10 +3025,17 @@ function renderCompass(a) {
   legendEl = document.createElement('div');
   legendEl.className = 'compass-legend';
   legendEl.style.cssText = 'display:flex;gap:16px;justify-content:center;margin-top:6px;font-size:10px;color:var(--text-secondary);';
-  legendEl.innerHTML = `
-    <span><span style="display:inline-block;width:14px;height:10px;background:rgba(199,145,59,0.18);border:1px dashed rgba(199,145,59,0.7);vertical-align:middle;margin-right:4px;"></span>${state.lang === 'zh' ? '天線掃面 ±45°' : 'Antenna beam ±45°'}</span>
-    <span><span style="display:inline-block;width:16px;height:3px;background:#5C7C8A;vertical-align:middle;margin-right:4px;"></span>${state.lang === 'zh' ? '主風來向' : 'Wind from'}</span>
-  `;
+  if (isFR1Mode) {
+    legendEl.innerHTML = `
+      <span><span style="display:inline-block;width:14px;height:10px;background:rgba(92,124,138,0.15);border:1px solid rgba(92,124,138,0.4);border-radius:50%;vertical-align:middle;margin-right:4px;"></span>${state.lang === 'zh' ? 'FR1 自由旋轉' : 'FR1 free rotation'}</span>
+      <span><span style="display:inline-block;width:16px;height:3px;background:#5C7C8A;vertical-align:middle;margin-right:4px;"></span>${state.lang === 'zh' ? '主風來向' : 'Wind from'}</span>
+    `;
+  } else {
+    legendEl.innerHTML = `
+      <span><span style="display:inline-block;width:14px;height:10px;background:rgba(199,145,59,0.18);border:1px dashed rgba(199,145,59,0.7);vertical-align:middle;margin-right:4px;"></span>${state.lang === 'zh' ? '天線掃面 ±45°' : 'Antenna beam ±45°'}</span>
+      <span><span style="display:inline-block;width:16px;height:3px;background:#5C7C8A;vertical-align:middle;margin-right:4px;"></span>${state.lang === 'zh' ? '主風來向' : 'Wind from'}</span>
+    `;
+  }
   compassWrap.appendChild(legendEl);
 }
 
@@ -3054,12 +3070,22 @@ function renderRecList(a) {
         })()}</div>
         <div class="rec-note">${(() => {
           const finFace = (r.recommendedAz + 180) % 360;
-          if (state.lang === 'zh') {
-            return `鰭片位於天線正後方。天線面向 ${r.recommendedAz.toFixed(0)}°，故鰭片面向 ${finFace.toFixed(0)}°。<br>` +
-              `此方位已考慮天線扇區約束（${state.params.sector}° ±45°）與主導風向（${r.prevailingLabel} ${r.prevailingDeg.toFixed(0)}°），在允許範圍內選出鰭片最能迎風的朝向。`;
+          if (r.isFR1) {
+            if (state.lang === 'zh') {
+              return `FR1 模式：天線外接，機體可自由旋轉 360°，無扇區約束。<br>` +
+                `機體面向 ${r.recommendedAz.toFixed(0)}°，鰭片面向 ${finFace.toFixed(0)}°，直接對準最佳迎風方位（主風 ${r.prevailingLabel} ${r.prevailingDeg.toFixed(0)}°）。`;
+            } else {
+              return `FR1 mode: external antenna, unit body can rotate freely 360° with no sector constraint.<br>` +
+                `Unit faces ${r.recommendedAz.toFixed(0)}°, fins face ${finFace.toFixed(0)}°, directly aligned with optimal wind direction (prevailing: ${r.prevailingLabel} ${r.prevailingDeg.toFixed(0)}°).`;
+            }
           } else {
-            return `Fins are on the back of the unit. Antenna faces ${r.recommendedAz.toFixed(0)}°, so fins face ${finFace.toFixed(0)}°.<br>` +
-              `This orientation accounts for both sector constraint (${state.params.sector}° ±45°) and prevailing wind (${r.prevailingLabel} ${r.prevailingDeg.toFixed(0)}°), choosing the best fin-to-wind alignment within the allowed range.`;
+            if (state.lang === 'zh') {
+              return `鰭片位於天線正後方。天線面向 ${r.recommendedAz.toFixed(0)}°，故鰭片面向 ${finFace.toFixed(0)}°。<br>` +
+                `此方位已考慮天線扇區約束（${state.params.sector}° ±45°）與主導風向（${r.prevailingLabel} ${r.prevailingDeg.toFixed(0)}°），在允許範圍內選出鰭片最能迎風的朝向。`;
+            } else {
+              return `Fins are on the back of the unit. Antenna faces ${r.recommendedAz.toFixed(0)}°, so fins face ${finFace.toFixed(0)}°.<br>` +
+                `This orientation accounts for both sector constraint (${state.params.sector}° ±45°) and prevailing wind (${r.prevailingLabel} ${r.prevailingDeg.toFixed(0)}°), choosing the best fin-to-wind alignment within the allowed range.`;
+            }
           }
         })()}</div>
       </div>
@@ -3140,9 +3166,8 @@ function renderRecList(a) {
       </div>
     </li>
   `;
-  // Alignment quality badge: measures how well the sector-constrained unit azimuth
-  // can align with the prevailing wind axis. 100% = fins perfectly parallel to wind;
-  // 0% = fins 45° off-axis (worst case within the ±45° sector constraint window).
+  // Alignment quality badge: measures how well the unit azimuth can align with the
+  // prevailing wind axis. FR2: constrained ±45° from sector; FR1: free 360° → always ~100%.
   const q = r.alignmentQuality;
   const badge = $('#rec-badge');
   let label, color;
@@ -3317,7 +3342,7 @@ function renderFieldCard(a) {
 
   // QR code with installation summary
   $('#qr-container').style.display = 'flex';
-  const qrText = `RRU SITE\n${state.location.name}\nLat: ${state.location.lat.toFixed(4)}\nLon: ${state.location.lon.toFixed(4)}\nFace: ${r.recommendedAz.toFixed(0)}°\nFin axis: ${r.finAxisDeg.toFixed(0)}°\nMode: ${r.convMode}\nP95: ${a.tStats.p95.toFixed(1)}°C`;
+  const qrText = `RRU SITE\n${state.location.name}\nLat: ${state.location.lat.toFixed(4)}\nLon: ${state.location.lon.toFixed(4)}\nBand: ${r.isFR1 ? 'FR1' : 'FR2'}\nFace: ${r.recommendedAz.toFixed(0)}°\nFin axis: ${r.finAxisDeg.toFixed(0)}°\nMode: ${r.convMode}\nP95: ${a.tStats.p95.toFixed(1)}°C`;
   $('#qrcode').innerHTML = '';
   new QRCode($('#qrcode'), { text: qrText, width: 160, height: 160, colorDark: '#0a0e14', colorLight: '#ffffff' });
 }
@@ -3434,7 +3459,8 @@ async function exportPDF() {
     let y = 36;
     pdf.text(`Site: ${state.location.name}`, 15, y); y += 6;
     pdf.text(`Coordinates: ${state.location.lat.toFixed(4)}°, ${state.location.lon.toFixed(4)}°`, 15, y); y += 6;
-    pdf.text(`Antenna height: ${state.params.height} m | Terrain α=${state.params.alpha} | Shielding ×${state.params.shielding} | Sector ${state.params.sector}°`, 15, y); y += 10;
+    const modeLabel = state.params.bandMode === 'FR1' ? 'FR1 (ext. antenna, free rotation)' : `FR2 (integrated antenna, sector ${state.params.sector}°)`;
+    pdf.text(`Antenna height: ${state.params.height} m | Terrain α=${state.params.alpha} | Shielding ×${state.params.shielding} | ${modeLabel}`, 15, y); y += 10;
 
     // Climate summary
     pdf.setFontSize(13);
@@ -3464,7 +3490,7 @@ async function exportPDF() {
     pdf.setFontSize(10);
     pdf.text(`Prevailing wind (hot season): ${r.prevailingLabel} (${r.prevailingDeg.toFixed(0)}°, ${(r.prevailingFreq * 100).toFixed(0)}% freq)`, 15, y); y += 5;
     pdf.text(`Recommended fin axis: ${r.finAxisDeg.toFixed(0)}°`, 15, y); y += 5;
-    pdf.text(`Recommended unit azimuth: ${r.recommendedAz.toFixed(0)}° (${r.rotationOffset >= 0 ? '+' : ''}${r.rotationOffset}° from sector)`, 15, y); y += 5;
+    pdf.text(`Recommended unit azimuth: ${r.recommendedAz.toFixed(0)}°${r.isFR1 ? ' (FR1 free rotation)' : ` (${r.rotationOffset >= 0 ? '+' : ''}${r.rotationOffset}° from sector)`}`, 15, y); y += 5;
     pdf.text(`Convection mode: ${r.convMode === 'mixed' ? 'Mixed (natural + forced)' : 'Natural only'}`, 15, y); y += 5;
     pdf.text(`Alignment quality: ${(r.alignmentQuality * 100).toFixed(0)}% (min angle to wind axis: ${r.bestDiff.toFixed(0)}°)`, 15, y); y += 10;
 
@@ -3712,6 +3738,7 @@ function runFullAnalysis() {
   state.params.shielding = parseFloat($('#param-shielding').value);
   state.params.absorptance = parseFloat($('#param-absorptance').value);
   state.params.sector = parseFloat($('#param-sector').value);
+  // bandMode is set by the seg-control click handler, already in state.params
 
   if (!state.climate) { toast('Load climate data first', 'error'); return; }
   state.analysis = runAnalysis();
@@ -3762,6 +3789,24 @@ function setupEvents() {
 
   $$('#role-switch button').forEach(btn => btn.addEventListener('click', () => setRole(btn.dataset.role)));
   $$('#lang-switch button').forEach(btn => btn.addEventListener('click', () => setLang(btn.dataset.lang)));
+
+  // Band mode (FR1 / FR2) toggle
+  $$('#band-mode-switch button').forEach(btn => btn.addEventListener('click', () => {
+    $$('#band-mode-switch button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.params.bandMode = btn.dataset.mode;
+    const sectorGroup = $('#sector-group');
+    const sectorInput = $('#param-sector');
+    if (btn.dataset.mode === 'FR1') {
+      sectorGroup.style.opacity = '0.35';
+      sectorGroup.style.pointerEvents = 'none';
+      sectorInput.disabled = true;
+    } else {
+      sectorGroup.style.opacity = '1';
+      sectorGroup.style.pointerEvents = 'auto';
+      sectorInput.disabled = false;
+    }
+  }));
 
   // Margin inputs live-update
   ['#margin-tjmax', '#margin-thetajc', '#margin-power'].forEach(sel => {
