@@ -8,7 +8,6 @@
 
 <!-- Fonts: IBM Plex (engineering feel, not AI-slop Inter) -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600;8..60,700&family=Noto+Sans+TC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet" />
 
@@ -27,1572 +26,955 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <style>
-/* =============================================================================
-   5G RRU Thermal Advisor — Redesigned styles
-   Direction: engineering instrument. Refined dark, no glow, no marketing puff.
-   ============================================================================= */
+  /* ===== Design Tokens =====
+     Engineering dark theme. No backdrop-blur. No meaningless gradients.
+     Subtle borders ARE allowed because engineers expect data regions to be
+     clearly demarcated. Cyan accent retained from Stitch but desaturated.
+  */
+  :root {
+    --bg-base:        #0a0e14;
+    --bg-surface-1:   #11161f;
+    --bg-surface-2:   #161c28;
+    --bg-surface-3:   #1c2333;
+    --bg-elevated:    #1f2738;
 
-:root {
-  /* === Claude-style warm cream palette === */
+    --border-low:     #232c3d;
+    --border-mid:     #2e394e;
+    --border-high:    #3a4660;
 
-  /* SURFACES — warm ivory, layered, not gray */
-  --bg-canvas:      #F5F1E8;   /* page bg — warm cream */
-  --bg-rail:        #EFE9DA;   /* sidebar — slightly deeper cream */
-  --bg-panel:       #FAF7F0;   /* primary panel — lifted ivory */
-  --bg-panel-2:     #F2ECDD;   /* recessed sub-panel */
-  --bg-input:       #FBF8F1;   /* form fields — soft, almost white */
-  --bg-row-hover:   #EFE7D2;
+    --text-primary:   #e6edf7;
+    --text-secondary: #a8b4ca;  /* bumped from #94a1b8 for better contrast */
+    --text-tertiary:  #8592ac;  /* bumped from #5e6a82 (2.9:1 → ~5.2:1 on bg-base) for WCAG AA */
+    --text-disabled:  #525d75;
 
-  /* BORDERS — warm taupe hairlines */
-  --rule:           #DDD3BC;   /* default hairline */
-  --rule-strong:    #C9BD9F;
-  --rule-soft:      #E8E0CB;
+    --accent:         #4fd4e6;
+    --accent-dim:     #2b8a99;
+    --accent-fade:    #4fd4e620;
 
-  /* TEXT — warm dark brown, not black */
-  --ink-1:          #2B2A26;   /* primary — espresso */
-  --ink-2:          #5C5A4F;   /* secondary — readable body */
-  --ink-3:          #82806f;   /* tertiary — labels / captions */
-  --ink-4:          #A8A492;   /* faint — disabled / decorative */
+    --warn:           #f5b250;
+    --warn-fade:      #f5b25020;
+    --error:          #ef5a6f;
+    --error-fade:     #ef5a6f20;
+    --success:        #4caf80;
+    --success-fade:   #4caf8020;
 
-  /* ACCENTS — Claude crail (terracotta) */
-  --signal:         #C96442;   /* Claude crail / coral */
-  --signal-deep:    #B0492A;
-  --signal-dim:     #E0A48F;
-  --signal-wash:    rgba(201,100,66,0.10);
-  --signal-line:    rgba(201,100,66,0.30);
+    --font-sans: 'IBM Plex Sans', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
 
-  --warn:           #C7913B;   /* warm amber */
-  --warn-wash:      rgba(199,145,59,0.12);
-  --warn-line:      rgba(199,145,59,0.32);
+    --r-sm: 4px;
+    --r-md: 6px;
+    --r-lg: 10px;
+    --r-xl: 14px;
 
-  --hot:            #B0492A;   /* deep terracotta for "hot" */
-  --hot-wash:       rgba(176,73,42,0.10);
-  --hot-line:       rgba(176,73,42,0.30);
-
-  --cool:           #5C7C8A;   /* muted slate-teal for wind tones */
-
-  /* TYPE — Claude.ai display + body pairing */
-  --font-display: 'Source Serif 4', 'Tiempos Headline', Georgia, serif;
-  --font-sans:    'Inter', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-mono:    'JetBrains Mono', 'SF Mono', ui-monospace, Consolas, monospace;
-
-  /* RADII — soft, friendly, tactile (not engineering) */
-  --r-1: 6px;
-  --r-2: 10px;
-  --r-3: 14px;
-
-  /* DENSITY */
-  --pad-panel: 26px;
-  --pad-panel-y: 24px;
-  --row-gap: 20px;
-
-  /* MOTION — slightly bouncier for tactile feel */
-  --t-fast: 120ms cubic-bezier(.4,0,.2,1);
-  --t-mid:  220ms cubic-bezier(.32,.72,.4,1);
-
-  /* Tactile button shadows — Claude-style claymorphism */
-  --btn-shadow:
-    0 1px 0 0 rgba(255,255,255,0.7) inset,
-    0 -1px 0 0 rgba(0,0,0,0.04) inset,
-    0 1px 2px rgba(70,55,30,0.08),
-    0 2px 4px rgba(70,55,30,0.06);
-  --btn-shadow-hover:
-    0 1px 0 0 rgba(255,255,255,0.8) inset,
-    0 -1px 0 0 rgba(0,0,0,0.05) inset,
-    0 2px 4px rgba(70,55,30,0.10),
-    0 4px 10px rgba(70,55,30,0.10);
-  --btn-shadow-active:
-    0 1px 0 0 rgba(0,0,0,0.06) inset,
-    0 1px 1px rgba(70,55,30,0.06);
-
-  --panel-shadow:
-    0 1px 0 0 rgba(255,255,255,0.6) inset,
-    0 1px 2px rgba(70,55,30,0.05),
-    0 4px 16px -4px rgba(70,55,30,0.08);
-}
-
-body[data-grid="off"] {
-  background-image: none !important;
-}
-
-body[data-density="compact"] {
-  --pad-panel: 16px;
-  --pad-panel-y: 14px;
-  --row-gap: 14px;
-}
-
-
-/* Legacy variable aliases for JS-injected styles that still reference the old token names.
-   Maps the original v1 token system onto the redesigned v2 tokens so dynamic content
-   (badge popover, margin-results alerts, summary captions) continues to render correctly. */
-:root {
-  --bg-base:        var(--bg-canvas);
-  --bg-surface-1:   var(--bg-rail);
-  --bg-surface-2:   var(--bg-panel-2);
-  --bg-surface-3:   var(--bg-panel-2);
-  --bg-elevated:    var(--bg-panel);
-  --border-low:     var(--rule);
-  --border-mid:     var(--rule-strong);
-  --border-high:    var(--rule-strong);
-  --text-primary:   var(--ink-1);
-  --text-secondary: var(--ink-2);
-  --text-tertiary:  var(--ink-3);
-  --text-disabled:  var(--ink-4);
-  --accent:         var(--signal);
-  --accent-dim:     var(--signal-dim);
-  --accent-fade:    var(--signal-wash);
-  --warn-fade:      var(--warn-wash);
-  --error:          var(--hot);
-  --error-fade:     var(--hot-wash);
-  --success:        var(--signal);
-  --success-fade:   var(--signal-wash);
-  --r-sm:           var(--r-1);
-  --r-md:           var(--r-2);
-  --r-lg:           var(--r-3);
-  --r-xl:           8px;
-  --shadow-md: 0 2px 8px rgba(0,0,0,0.4);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
-}
-
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
-body {
-  font-family: var(--font-sans);
-  background: var(--bg-canvas);
-  color: var(--ink-1);
-  font-size: 14px;
-  line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-  /* Soft warm radial gradient instead of grid */
-  background-image:
-    radial-gradient(ellipse 1200px 600px at 50% -10%, rgba(201,100,66,0.05), transparent 60%),
-    radial-gradient(ellipse 800px 400px at 100% 100%, rgba(199,145,59,0.04), transparent 70%);
-  background-attachment: fixed;
-}
-
-::selection { background: var(--signal-wash); color: var(--ink-1); }
-
-.mono, .num {
-  font-family: var(--font-mono);
-  font-feature-settings: 'tnum' 1, 'zero' 1;
-}
-.num { font-weight: 500; }
-
-/* =============================================================================
-   TOP BAR — persistent app chrome
-   ============================================================================= */
-#topbar {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  min-height: 60px;
-  background: rgba(245,241,232,0.85);
-  border-bottom: 1px solid var(--rule);
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  padding: 10px 24px;
-  gap: 12px 20px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-#topbar .brand {
-  display: flex; align-items: center; gap: 12px;
-  font-weight: 500; font-size: 13px;
-  color: var(--ink-1);
-  letter-spacing: -0.005em;
-  min-width: 0;
-}
-#topbar .brand-title { min-width: 0; max-width: 380px; }
-#topbar .brand-title .b1 {
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-#topbar .brand-mark {
-  width: 32px; height: 32px;
-  border: 1px solid var(--signal-line);
-  background: linear-gradient(180deg, #D97757 0%, #C96442 100%);
-  display: grid; place-items: center;
-  color: #FFF8F2; font-weight: 600; font-size: 10px;
-  font-family: var(--font-mono);
-  letter-spacing: 0.04em;
-  border-radius: 8px;
-  box-shadow:
-    0 1px 0 0 rgba(255,255,255,0.25) inset,
-    0 -1px 0 0 rgba(0,0,0,0.15) inset,
-    0 1px 2px rgba(176,73,42,0.3);
-}
-#topbar .brand-title {
-  display: flex; flex-direction: column; gap: 2px;
-  line-height: 1;
-}
-#topbar .brand-title .b1 {
-  font-size: 14px; font-weight: 500; color: var(--ink-1);
-  font-family: var(--font-display);
-  letter-spacing: -0.01em;
-}
-#topbar .brand-title .b2 {
-  font-size: 10px; color: var(--ink-3);
-  font-family: var(--font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-/* Right cluster */
-#topbar .toolbar {
-  display: flex; align-items: center; gap: 10px;
-  margin-left: auto;
-  flex-wrap: wrap;
-}
-
-/* Segmented control — Claude-style soft pill */
-.seg-control {
-  display: inline-flex;
-  background: var(--bg-panel-2);
-  border: 1px solid var(--rule);
-  border-radius: 999px;
-  padding: 3px;
-  box-shadow:
-    0 1px 0 0 rgba(255,255,255,0.6) inset,
-    0 1px 2px rgba(70,55,30,0.04);
-}
-.seg-control button {
-  background: transparent; border: none;
-  color: var(--ink-3);
-  font-family: var(--font-sans);
-  font-size: 12px; font-weight: 500;
-  padding: 6px 14px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: var(--t-fast);
-  letter-spacing: 0;
-}
-.seg-control button:hover { color: var(--ink-1); }
-.seg-control button.active {
-  background: var(--bg-panel);
-  color: var(--signal);
-  box-shadow:
-    0 1px 0 0 rgba(255,255,255,0.8) inset,
-    0 -1px 0 0 rgba(0,0,0,0.03) inset,
-    0 1px 2px rgba(70,55,30,0.10),
-    0 2px 4px rgba(70,55,30,0.06);
-}
-
-#topbar .gh-link {
-  color: var(--ink-2);
-  text-decoration: none;
-  font-size: 12px;
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--rule);
-  background: var(--bg-panel);
-  font-family: var(--font-sans);
-  font-weight: 500;
-  letter-spacing: 0;
-  transition: var(--t-fast);
-  box-shadow:
-    0 1px 0 0 rgba(255,255,255,0.7) inset,
-    0 1px 2px rgba(70,55,30,0.05);
-}
-#topbar .gh-link:hover {
-  color: var(--signal); border-color: var(--signal-line);
-  transform: translateY(-1px);
-  box-shadow:
-    0 1px 0 0 rgba(255,255,255,0.7) inset,
-    0 2px 6px rgba(70,55,30,0.10);
-}
-
-/* =============================================================================
-   APP SHELL — two-column with sticky context rail
-   ============================================================================= */
-main {
-  display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
-  gap: 0;
-  max-width: 1640px;
-  margin: 0 auto;
-  align-items: stretch;
-  min-height: calc(100vh - 60px);
-}
-
-#ctx-rail {
-  background: var(--bg-rail);
-  border-right: 1px solid var(--rule);
-  padding: 0;
-  position: sticky;
-  top: 60px;
-  align-self: start;
-  height: calc(100vh - 60px);
-  overflow-y: auto;
-}
-#ctx-rail::-webkit-scrollbar { width: 8px; }
-#ctx-rail::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 8px; }
-#ctx-rail::-webkit-scrollbar-track { background: transparent; }
-
-#workspace {
-  background: transparent;
-  padding: 24px 32px 80px;
-  min-width: 0;
-}
-
-@media (max-width: 880px) {
-  main { grid-template-columns: 1fr; }
-  #ctx-rail { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--rule-strong); }
-}
-
-/* =============================================================================
-   PANEL — etched into the canvas, not floating
-   ============================================================================= */
-.panel {
-  background: var(--bg-panel);
-  border: 1px solid var(--rule);
-  border-radius: var(--r-3);
-  padding: var(--pad-panel-y) var(--pad-panel);
-  margin-bottom: var(--row-gap);
-  box-shadow: var(--panel-shadow);
-}
-.panel:last-child { margin-bottom: 0; }
-
-/* Rail-specific panel: flush, no rounded corners, separator-style */
-#ctx-rail .rail-section {
-  padding: 22px 22px;
-  border-bottom: 1px solid var(--rule);
-}
-#ctx-rail .rail-section:last-child { border-bottom: none; }
-
-.panel-head {
-  display: flex; align-items: baseline; justify-content: space-between;
-  margin-bottom: 18px;
-  gap: 12px;
-}
-.panel-head .title {
-  font-size: 11px;
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-weight: 500;
-  color: var(--ink-2);
-  display: inline-flex; align-items: center; gap: 10px;
-}
-.panel-head .title::before {
-  content: '';
-  width: 7px; height: 7px;
-  background: var(--signal);
-  border-radius: 50%;
-  box-shadow: 0 0 0 3px var(--signal-wash);
-  flex-shrink: 0;
-}
-.panel-head .title .step {
-  color: var(--ink-4); font-weight: 500; margin-right: 4px;
-}
-.panel-head .badge {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--ink-2);
-  padding: 4px 10px;
-  border: 1px solid var(--rule);
-  border-radius: 999px;
-  font-family: var(--font-mono);
-  background: var(--bg-panel-2);
-  font-weight: 500;
-  cursor: default;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.5) inset;
-}
-.panel-head .badge.is-clickable { cursor: pointer; }
-.panel-head .badge.good { color: var(--signal); border-color: var(--signal-line); background: var(--signal-wash); }
-.panel-head .badge.warn { color: var(--warn); border-color: var(--warn-line); background: var(--warn-wash); }
-.panel-head .badge.bad  { color: var(--hot);  border-color: var(--hot-line);  background: var(--hot-wash); }
-
-.section-sub {
-  font-size: 11px;
-  color: var(--ink-3);
-  margin: -8px 0 16px 0;
-  line-height: 1.55;
-  max-width: 70ch;
-}
-
-/* =============================================================================
-   GRID
-   ============================================================================= */
-.grid { display: grid; gap: 16px; }
-.grid-2 { grid-template-columns: 1fr 1fr; }
-.grid-3 { grid-template-columns: repeat(3, 1fr); }
-.grid-4 { grid-template-columns: repeat(4, 1fr); }
-.grid-6 { grid-template-columns: repeat(6, 1fr); }
-.grid-asym   { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); }
-.grid-asym-r { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
-
-@media (max-width: 1300px) {
-  .grid-6 { grid-template-columns: repeat(3, 1fr); }
-}
-@media (max-width: 900px) {
-  .grid-2, .grid-3, .grid-4, .grid-asym, .grid-asym-r { grid-template-columns: 1fr; }
-  .grid-6 { grid-template-columns: repeat(2, 1fr); }
-}
-
-/* =============================================================================
-   FORM CONTROLS
-   ============================================================================= */
-label, .field-label {
-  display: block;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--ink-2);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 7px;
-  font-family: var(--font-mono);
-}
-input[type="text"], input[type="number"], select, textarea {
-  width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--rule);
-  border-radius: var(--r-1);
-  color: var(--ink-1);
-  font-family: var(--font-sans);
-  font-size: 14px;
-  padding: 10px 12px;
-  transition: var(--t-fast);
-  line-height: 1.4;
-  box-shadow: 0 1px 2px rgba(70,55,30,0.04) inset;
-}
-input[type="text"]:focus, input[type="number"]:focus, select:focus, textarea:focus {
-  outline: none;
-  border-color: var(--signal);
-  background: #FFFEFA;
-  box-shadow:
-    0 1px 2px rgba(70,55,30,0.04) inset,
-    0 0 0 3px var(--signal-wash);
-}
-input[type="number"], input[type="text"][inputmode="decimal"] {
-  font-family: var(--font-mono);
-  font-feature-settings: 'tnum' 1;
-}
-select {
-  appearance: none;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%2382806f' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M3 4.5 L6 7.5 L9 4.5'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 32px;
-  cursor: pointer;
-}
-
-.field-help {
-  font-size: 12px;
-  color: var(--ink-3);
-  margin-top: 7px;
-  line-height: 1.55;
-}
-.field-help strong { color: var(--ink-2); font-weight: 500; }
-.help { font-size: 12px; color: var(--ink-3); margin-top: 7px; line-height: 1.55; }
-.help strong { color: var(--ink-2); font-weight: 500; }
-
-/* =============================================================================
-   BUTTONS — Claude-style tactile / claymorphic
-   ============================================================================= */
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  border: 1px solid var(--rule-strong);
-  background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-panel-2) 100%);
-  color: var(--ink-1);
-  font-family: var(--font-sans);
-  font-size: 13px; font-weight: 500;
-  padding: 9px 16px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: var(--t-fast);
-  letter-spacing: 0;
-  box-shadow: var(--btn-shadow);
-  position: relative;
-  user-select: none;
-}
-.btn:hover {
-  border-color: var(--rule-strong);
-  background: linear-gradient(180deg, #FCFAF3 0%, var(--bg-panel) 100%);
-  transform: translateY(-1px);
-  box-shadow: var(--btn-shadow-hover);
-}
-.btn:active {
-  transform: translateY(1px);
-  box-shadow: var(--btn-shadow-active);
-}
-.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: var(--btn-shadow); }
-
-.btn-primary {
-  background: linear-gradient(180deg, #D97757 0%, #C96442 100%);
-  border-color: #B0492A;
-  color: #FFF8F2;
-  font-weight: 600;
-  box-shadow:
-    0 1px 0 0 rgba(255,255,255,0.25) inset,
-    0 -1px 0 0 rgba(0,0,0,0.15) inset,
-    0 1px 2px rgba(176,73,42,0.2),
-    0 2px 6px rgba(176,73,42,0.18);
-}
-.btn-primary:hover {
-  background: linear-gradient(180deg, #DD8467 0%, #CE6B49 100%);
-  border-color: #B0492A;
-  color: #FFF8F2;
-  box-shadow:
-    0 1px 0 0 rgba(255,255,255,0.3) inset,
-    0 -1px 0 0 rgba(0,0,0,0.18) inset,
-    0 2px 4px rgba(176,73,42,0.25),
-    0 6px 14px rgba(176,73,42,0.25);
-}
-.btn-primary:active {
-  background: linear-gradient(180deg, #C96442 0%, #B85A3A 100%);
-  box-shadow:
-    0 1px 2px rgba(0,0,0,0.15) inset,
-    0 1px 1px rgba(176,73,42,0.15);
-}
-.btn-primary:disabled { background: var(--signal-dim); border-color: var(--signal-dim); color: rgba(255,255,255,0.85); }
-
-.btn-ghost {
-  background: transparent;
-  border: 1px solid var(--rule);
-  color: var(--ink-2);
-  box-shadow: none;
-}
-.btn-ghost:hover {
-  border-color: var(--rule-strong);
-  color: var(--ink-1);
-  background: var(--bg-panel-2);
-  transform: translateY(-1px);
-  box-shadow:
-    0 1px 0 0 rgba(255,255,255,0.6) inset,
-    0 1px 3px rgba(70,55,30,0.06);
-}
-
-.btn-sm { font-size: 12px; padding: 7px 12px; border-radius: 8px; }
-.btn-warn {
-  border-color: var(--warn-line);
-  color: #8A5E1F;
-  background: linear-gradient(180deg, #F5E5C5 0%, #ECD9B0 100%);
-  box-shadow:
-    0 1px 0 0 rgba(255,255,255,0.5) inset,
-    0 -1px 0 0 rgba(0,0,0,0.04) inset,
-    0 1px 2px rgba(140,100,40,0.10);
-}
-.btn-warn:hover { background: linear-gradient(180deg, #F8EBD0 0%, #F0DEB8 100%); border-color: var(--warn); }
-
-.btn .kbd {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: inherit;
-  opacity: 0.7;
-  border: 1px solid currentColor;
-  border-radius: 3px;
-  padding: 0 5px;
-  margin-left: 4px;
-}
-
-/* Preset chips — Claude-style soft pills */
-.preset-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.preset-chip {
-  background: var(--bg-panel);
-  border: 1px solid var(--rule);
-  color: var(--ink-2);
-  padding: 5px 11px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-family: var(--font-sans);
-  font-weight: 500;
-  cursor: pointer;
-  transition: var(--t-fast);
-  letter-spacing: 0;
-  box-shadow:
-    0 1px 0 0 rgba(255,255,255,0.6) inset,
-    0 1px 2px rgba(70,55,30,0.04);
-}
-.preset-chip:hover {
-  color: var(--signal); border-color: var(--signal-line);
-  background: var(--signal-wash);
-  transform: translateY(-1px);
-  box-shadow:
-    0 1px 0 0 rgba(255,255,255,0.6) inset,
-    0 2px 4px rgba(176,73,42,0.10);
-}
-
-/* =============================================================================
-   STAT CARDS — instrument readouts
-   ============================================================================= */
-.stat {
-  background: var(--bg-panel);
-  border: 1px solid var(--rule);
-  border-radius: var(--r-2);
-  padding: 16px 18px;
-  position: relative;
-  overflow: hidden;
-  box-shadow:
-    0 1px 0 0 rgba(255,255,255,0.6) inset,
-    0 1px 2px rgba(70,55,30,0.04);
-}
-.stat::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 14px; bottom: 14px;
-  width: 3px;
-  background: var(--rule-strong);
-  border-radius: 0 2px 2px 0;
-}
-.stat-accent::before { background: var(--signal); }
-.stat-warn::before   { background: var(--warn); }
-.stat-error::before  { background: var(--hot); }
-
-.stat-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--ink-3);
-  font-weight: 500;
-  font-family: var(--font-mono);
-  margin-bottom: 12px;
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 8px;
-}
-.stat-value {
-  font-family: var(--font-display);
-  font-size: 30px;
-  font-weight: 500;
-  color: var(--ink-1);
-  line-height: 1.05;
-  letter-spacing: -0.015em;
-  font-feature-settings: 'tnum' 1;
-}
-.stat-value .unit {
-  font-size: 13px;
-  color: var(--ink-3);
-  font-weight: 400;
-  margin-left: 4px;
-  letter-spacing: 0;
-  font-family: var(--font-mono);
-}
-.stat-foot {
-  font-size: 11.5px;
-  color: var(--ink-3);
-  margin-top: 12px;
-  line-height: 1.55;
-  padding-top: 10px;
-  border-top: 1px solid var(--rule);
-}
-.stat-accent .stat-value { color: var(--signal); }
-.stat-warn   .stat-value { color: var(--warn); }
-.stat-error  .stat-value { color: var(--hot); }
-/* Equal heights */
-.grid-6 .stat, .grid-3 .stat, .grid-2 .stat { display: flex; flex-direction: column; }
-.grid-6 .stat .stat-foot, .grid-3 .stat .stat-foot { margin-top: auto; }
-
-/* Quick rail KPI — compact stat for sidebar */
-.rail-kpi-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.rail-kpi {
-  background: var(--bg-panel);
-  border: 1px solid var(--rule);
-  border-radius: var(--r-2);
-  padding: 10px 12px;
-}
-.rail-kpi .kpi-label {
-  font-size: 9px;
-  font-family: var(--font-mono);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-  margin-bottom: 4px;
-}
-.rail-kpi .kpi-value {
-  font-family: var(--font-mono);
-  font-size: 16px;
-  color: var(--ink-1);
-  font-weight: 500;
-}
-.rail-kpi .kpi-value .unit { font-size: 10px; color: var(--ink-3); margin-left: 3px; }
-
-/* =============================================================================
-   MAP
-   ============================================================================= */
-#map {
-  width: 100%; height: 240px;
-  border-radius: var(--r-2);
-  background: var(--bg-canvas);
-  border: 1px solid var(--rule);
-  overflow: hidden;
-}
-.leaflet-container { background: var(--bg-canvas) !important; font-family: var(--font-sans); }
-.leaflet-bar a {
-  background: var(--bg-panel-2) !important;
-  color: var(--ink-1) !important;
-  border-bottom: 1px solid var(--rule) !important;
-}
-.leaflet-bar a:hover { background: var(--bg-row-hover) !important; }
-.leaflet-control-attribution {
-  background: rgba(250,247,240,0.85) !important;
-  color: var(--ink-3) !important;
-  font-size: 9px !important;
-}
-.leaflet-control-attribution a { color: var(--ink-2) !important; }
-
-/* Site marker pulse animation */
-.site-marker {
-  width: 12px; height: 12px;
-  background: var(--signal);
-  border: 2px solid var(--bg-canvas);
-  border-radius: 50%;
-  box-shadow: 0 0 0 0 rgba(106,217,201,0.55);
-  animation: pulse 2.4s infinite;
-}
-@keyframes pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(106,217,201,0.55); }
-  70%  { box-shadow: 0 0 0 14px rgba(106,217,201,0); }
-  100% { box-shadow: 0 0 0 0 rgba(106,217,201,0); }
-}
-
-/* =============================================================================
-   COMPASS / WIND ROSE
-   ============================================================================= */
-.compass-wrap {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-}
-.rru-diagram-svg {
-  width: 100%;
-  max-width: 240px;
-  height: auto;
-  aspect-ratio: 1 / 1;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
-}
-.compass-svg {
-  width: 100%;
-  max-width: 280px;
-  height: auto;
-  aspect-ratio: 1 / 1;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
-}
-.compass-cap {
-  font-size: 10px;
-  font-family: var(--font-mono);
-  color: var(--ink-3);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-/* Recommendation panel grid: compass + content */
-.rec-grid {
-  display: grid;
-  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-@media (max-width: 1280px) {
-  .rec-grid {
-    grid-template-columns: 1fr 1fr;
+    --shadow-md: 0 2px 8px rgba(0,0,0,0.4);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
   }
-  .rec-grid .rec-content { grid-column: 1 / -1; }
-}
-@media (max-width: 720px) {
-  .rec-grid { grid-template-columns: 1fr; }
-}
 
-.rru-diagram-wrap {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-}
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
 
-.windrose-wrap { display: flex; flex-direction: column; align-items: center; }
-.windrose-svg { width: 100%; max-width: 320px; height: auto; }
-.windrose-legend {
-  display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 14px;
-  margin-top: 14px; font-size: 10px; color: var(--ink-2);
-  font-family: var(--font-mono);
-  width: 100%; max-width: 320px;
-}
-.windrose-legend > div { display: flex; align-items: center; gap: 6px; }
-.windrose-legend .swatch {
-  display: inline-block; width: 14px; height: 8px;
-  vertical-align: middle; border-radius: 1px;
-  flex-shrink: 0;
-}
-.windrose-caption {
-  font-size: 11px; color: var(--ink-3);
-  margin-top: 12px; line-height: 1.6; max-width: 360px;
-}
+  /* Mono font for numbers/coordinates - very engineering */
+  .mono { font-family: var(--font-mono); font-feature-settings: 'tnum' 1; }
+  .num  { font-family: var(--font-mono); font-feature-settings: 'tnum' 1; font-weight: 500; }
 
-/* =============================================================================
-   RECOMMENDATION LIST
-   ============================================================================= */
-.rec-list { list-style: none; padding: 0; margin: 0; }
-.rec-list li {
-  padding: 16px 0;
-  border-bottom: 1px solid var(--rule);
-  display: flex; gap: 16px; align-items: flex-start;
-}
-.rec-list li:first-child { padding-top: 4px; }
-.rec-list li:last-child { border-bottom: none; padding-bottom: 4px; }
-.rec-list .rec-icon {
-  flex-shrink: 0;
-  width: 28px; height: 28px;
-  border-radius: var(--r-2);
-  background: var(--bg-panel-2);
-  border: 1px solid var(--rule-strong);
-  display: grid; place-items: center;
-  color: var(--signal);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-}
-.rec-list .rec-body { flex: 1; min-width: 0; }
-.rec-list .rec-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--ink-3);
-  font-family: var(--font-mono);
-  font-weight: 500;
-}
-.rec-list .rec-value {
-  font-size: 17px; font-weight: 500;
-  color: var(--ink-1);
-  margin-top: 4px;
-  font-family: var(--font-mono);
-  letter-spacing: -0.005em;
-}
-.rec-list .rec-note {
-  font-size: 12px;
-  color: var(--ink-2);
-  margin-top: 4px;
-  line-height: 1.55;
-}
+  /* ===== Top App Bar ===== */
+  #topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    height: 56px;
+    background: var(--bg-surface-1);
+    border-bottom: 1px solid var(--border-low);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 24px;
+  }
+  #topbar .brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 600; font-size: 15px;
+    color: var(--text-primary);
+  }
+  #topbar .brand-mark {
+    width: 28px; height: 28px;
+    border-radius: var(--r-sm);
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
+    display: flex; align-items: center; justify-content: center;
+    color: #08161a; font-weight: 700; font-size: 13px;
+    font-family: var(--font-mono);
+  }
+  #topbar .brand-sub {
+    font-size: 11px; color: var(--text-tertiary); font-weight: 400;
+    border-left: 1px solid var(--border-mid); padding-left: 10px;
+  }
+  #topbar .spacer { flex: 1; }
 
-/* =============================================================================
-   ALERTS
-   ============================================================================= */
-.alert {
-  border-radius: var(--r-2);
-  padding: 12px 14px;
-  border: 1px solid;
-  display: flex; gap: 12px;
-  font-size: 12px;
-  margin: 10px 0;
-  line-height: 1.55;
-  align-items: flex-start;
-}
-.alert .icon {
-  font-weight: 500; flex-shrink: 0;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  width: 20px; text-align: center;
-}
-.alert .msg { color: var(--ink-1); }
-.alert-warn    { background: var(--warn-wash);   border-color: var(--warn-line);   color: var(--warn); }
-.alert-error   { background: var(--hot-wash);    border-color: var(--hot-line);    color: var(--hot); }
-.alert-info    { background: var(--signal-wash); border-color: var(--signal-line); color: var(--signal); }
-.alert-success { background: var(--signal-wash); border-color: var(--signal-line); color: var(--signal); }
+  .seg-control {
+    display: inline-flex;
+    background: var(--bg-base);
+    border: 1px solid var(--border-low);
+    border-radius: var(--r-md);
+    padding: 2px;
+  }
+  .seg-control button {
+    background: transparent; border: none;
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-size: 12px; font-weight: 500;
+    padding: 6px 12px;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .seg-control button:hover { color: var(--text-primary); }
+  .seg-control button.active {
+    background: var(--bg-surface-3);
+    color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--border-mid);
+  }
 
-/* Backwards-compat stat color names used by JS */
-.alert-warn  { background: var(--warn-wash);   border-color: var(--warn-line);   color: var(--warn); }
-.alert-error { background: var(--hot-wash);    border-color: var(--hot-line);    color: var(--hot); }
+  #topbar .gh-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 12px;
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 10px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border-low);
+    transition: all 0.15s;
+  }
+  #topbar .gh-link:hover { color: var(--text-primary); border-color: var(--border-mid); }
 
-/* =============================================================================
-   TOAST + LOADING
-   ============================================================================= */
-#toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
-.toast {
-  background: var(--bg-panel);
-  border: 1px solid var(--rule-strong);
-  border-left: 2px solid var(--signal);
-  padding: 10px 14px;
-  border-radius: var(--r-2);
-  font-size: 12px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-  min-width: 260px; max-width: 380px;
-  animation: toast-in 0.22s ease-out;
-  color: var(--ink-1);
-}
-.toast.error   { border-left-color: var(--hot); }
-.toast.success { border-left-color: var(--signal); }
-@keyframes toast-in { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  /* ===== Layout ===== */
+  main {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 24px 20px 80px;
+  }
 
-#loading-overlay {
-  position: fixed; inset: 0;
-  background: rgba(250,247,240,0.88);
-  z-index: 150;
-  display: none;
-  align-items: center; justify-content: center;
-  flex-direction: column;
-  gap: 16px;
-  backdrop-filter: blur(2px);
-}
-#loading-overlay.show { display: flex; }
-#loading-overlay .spinner {
-  width: 32px; height: 32px;
-  border: 2px solid var(--rule-strong);
-  border-top-color: var(--signal);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-#loading-overlay .label {
-  color: var(--ink-2); font-size: 12px;
-  font-family: var(--font-mono);
-  letter-spacing: 0.04em;
-}
+  /* ===== Panel: the basic content container ===== */
+  .panel {
+    background: var(--bg-surface-1);
+    border: 1px solid var(--border-low);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: -4px 0 16px 0;
+  }
+  .panel-head .title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-head .title::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 2px;
+    background: var(--accent);
+    border-radius: 1px;
+  }
+  .panel-head .badge {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    padding: 3px 8px;
+    border: 1px solid var(--border-low);
+    border-radius: var(--r-sm);
+    font-family: var(--font-mono);
+  }
 
-/* =============================================================================
-   EMPTY STATE
-   ============================================================================= */
-.empty-state {
-  text-align: center;
-  padding: 48px 20px;
-  color: var(--ink-3);
-  font-size: 12px;
-  font-family: var(--font-mono);
-  letter-spacing: 0.04em;
-}
-.empty-state .icon {
-  font-size: 24px; margin-bottom: 8px;
-  font-family: var(--font-mono);
-  color: var(--ink-4);
-}
+  /* Grid system */
+  .grid { display: grid; gap: 20px; }
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+  .grid-5 { grid-template-columns: repeat(5, 1fr); }
+  .grid-6 { grid-template-columns: repeat(6, 1fr); }
+  .grid-asym { grid-template-columns: 1fr 2fr; }
+  .grid-asym-r { grid-template-columns: 2fr 1fr; }
 
-/* =============================================================================
-   TABLE
-   ============================================================================= */
-table.sites-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-.sites-table th, .sites-table td {
-  text-align: left;
-  padding: 10px 10px;
-  border-bottom: 1px solid var(--rule);
-}
-.sites-table th {
-  color: var(--ink-3);
-  font-weight: 500;
-  text-transform: uppercase;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  font-family: var(--font-mono);
-  background: var(--bg-panel-2);
-}
-.sites-table td.num {
-  text-align: right;
-  font-family: var(--font-mono);
-  font-feature-settings: 'tnum' 1;
-}
-.sites-table tr:hover td { background: var(--bg-row-hover); }
+  @media (max-width: 1100px) {
+    .grid-2, .grid-3, .grid-4, .grid-5, .grid-asym, .grid-asym-r { grid-template-columns: 1fr; }
+    .grid-6 { grid-template-columns: repeat(2, 1fr); }
+  }
 
-/* =============================================================================
-   DETAILS / DISCLOSURE
-   ============================================================================= */
-details {
-  border: 1px solid var(--rule);
-  border-radius: var(--r-2);
-  padding: 0;
-  background: var(--bg-panel);
-}
-details summary {
-  cursor: pointer;
-  padding: 12px 16px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--ink-2);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-family: var(--font-mono);
-  list-style: none;
-  user-select: none;
-}
-details summary:hover { color: var(--ink-1); }
-details summary::-webkit-details-marker { display: none; }
-details summary::after {
-  content: '+';
-  float: right; color: var(--ink-3);
-  font-family: var(--font-mono);
-  transition: var(--t-fast);
-}
-details[open] summary::after { content: '−'; color: var(--signal); }
-details[open] summary { border-bottom: 1px solid var(--rule); }
-details .detail-body {
-  padding: 14px 16px 16px 16px; font-size: 12.5px;
-  color: var(--ink-2); line-height: 1.7;
-}
-details .detail-body p { margin: 8px 0; }
-details .detail-body p:first-child { margin-top: 0; }
-details .detail-body strong { color: var(--ink-1); font-weight: 500; }
-details .detail-body code {
-  background: var(--bg-input); padding: 1px 6px;
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-  color: var(--signal); font-size: 11.5px;
-  font-family: var(--font-mono);
-}
-details .detail-body table { width: 100%; margin: 8px 0; font-size: 11px; }
-details .detail-body table td {
-  padding: 5px 10px;
-  border-bottom: 1px solid var(--rule);
-  font-family: var(--font-mono);
-}
-details .detail-body em { color: var(--ink-1); font-style: italic; }
-details .detail-body a { color: var(--signal); text-decoration: none; border-bottom: 1px solid var(--signal-line); }
+  /* ===== Form controls ===== */
+  label {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+  input[type="text"], input[type="number"], select, textarea {
+    width: 100%;
+    background: var(--bg-base);
+    border: 1px solid var(--border-low);
+    border-radius: var(--r-md);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    padding: 9px 12px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  input[type="text"]:focus, input[type="number"]:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--bg-surface-2);
+  }
+  input[type="number"] { font-family: var(--font-mono); }
+  select {
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%2394a1b8' stroke-width='1.5'><path d='M3 4.5L6 7.5L9 4.5'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+  }
 
-/* =============================================================================
-   ROLE VISIBILITY
-   ============================================================================= */
-body[data-role="customer"] .engineer-only { display: none !important; }
-body[data-role="customer"] .field-only    { display: none !important; }
-body[data-role="field"]    .engineer-only { display: none !important; }
-body[data-role="field"]    .customer-only { display: none !important; }
-body[data-role="engineer"] .field-only    { display: none !important; }
-body[data-role="engineer"] .customer-only { display: none !important; }
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border: 1px solid var(--border-mid);
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 13px; font-weight: 500;
+    padding: 9px 16px;
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--border-high); background: var(--bg-surface-3); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #08161a;
+    font-weight: 600;
+  }
+  .btn-primary:hover { background: #6ce0f0; border-color: #6ce0f0; }
+  .btn-primary:disabled { background: var(--accent-dim); border-color: var(--accent-dim); }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border-low);
+  }
+  .btn-sm { font-size: 11px; padding: 6px 10px; }
+  .btn-warn { border-color: var(--warn); color: var(--warn); background: var(--warn-fade); }
+  .btn-warn:hover { background: var(--warn-fade); border-color: var(--warn); }
 
-body[data-role="field"] main { grid-template-columns: 1fr; max-width: 720px; }
-body[data-role="field"] #ctx-rail { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--rule-strong); }
-body[data-role="field"] #workspace { padding: 16px; }
-body[data-role="field"] .compass-svg { width: 320px; height: 320px; }
+  /* Toggle (segmented look) for site-presets */
+  .preset-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .preset-chip {
+    background: transparent;
+    border: 1px solid var(--border-low);
+    color: var(--text-secondary);
+    padding: 5px 11px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .preset-chip:hover { color: var(--accent); border-color: var(--accent-dim); }
 
-/* =============================================================================
-   CHART
-   ============================================================================= */
-.chart-wrap { position: relative; height: 340px; }
-.chart-wrap.tall { height: 380px; }
+  /* ===== Stat cards ===== */
+  .stat {
+    background: var(--bg-surface-2);
+    border: 1px solid var(--border-low);
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+  }
+  .stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .stat-value {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.1;
+  }
+  .stat-value .unit {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    font-weight: 400;
+    margin-left: 4px;
+  }
+  .stat-foot {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    line-height: 1.55;
+  }
+  /* Ensure all stats in a row reach equal height so multi-line footers line up */
+  .grid-6 .stat, .grid-3 .stat, .grid-2 .stat { display: flex; flex-direction: column; }
+  .grid-6 .stat .stat-foot, .grid-3 .stat .stat-foot { margin-top: auto; padding-top: 8px; }
+  .stat-accent .stat-value { color: var(--accent); }
+  .stat-warn   .stat-value { color: var(--warn); }
+  .stat-error  .stat-value { color: var(--error); }
 
-/* Methodology section: show ZH or EN block depending on html lang */
-.meth-zh, .meth-en { display: none; }
-html[lang="zh-TW"] .meth-zh { display: block; }
-html[lang="en"]    .meth-en { display: block; }
+  /* Map */
+  #map {
+    width: 100%; height: 360px;
+    border-radius: var(--r-md);
+    background: var(--bg-base);
+    border: 1px solid var(--border-low);
+  }
+  .leaflet-container { background: #0a0e14 !important; font-family: var(--font-sans); }
 
-/* =============================================================================
-   STATUS STRIP — bottom CAD-app style status
-   ============================================================================= */
-#status-strip {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  height: 26px;
-  background: var(--bg-rail);
-  border-top: 1px solid var(--rule-strong);
-  display: flex; align-items: center;
-  padding: 0 16px;
-  gap: 16px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--ink-3);
-  letter-spacing: 0.04em;
-  z-index: 90;
-  white-space: nowrap;
-  overflow: hidden;
-}
-#status-strip .ss-item {
-  display: inline-flex; align-items: center; gap: 6px;
-}
-#status-strip .ss-item .dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--ink-4);
-}
-#status-strip .ss-item.ok .dot { background: var(--signal); box-shadow: 0 0 4px var(--signal); }
-#status-strip .ss-item.warn .dot { background: var(--warn); }
-#status-strip .ss-item.err .dot { background: var(--hot); }
-#status-strip .ss-key { color: var(--ink-3); text-transform: uppercase; }
-#status-strip .ss-val { color: var(--ink-1); }
-#status-strip .ss-sep { color: var(--ink-4); }
-#status-strip .spacer { flex: 1; }
+  /* Methodology section: show ZH or EN block depending on html lang */
+  .meth-zh, .meth-en { display: none; }
+  html[lang="zh-TW"] .meth-zh { display: block; }
+  html[lang="en"]    .meth-en { display: block; }
 
-/* Push body content above status strip */
-body { padding-bottom: 26px; }
+  /* ===== Compass SVG ===== */
+  .compass-wrap {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px;
+  }
+  .compass-svg { width: 240px; height: 240px; }
 
-/* =============================================================================
-   FOOTER
-   ============================================================================= */
-footer.app-foot {
-  text-align: center;
-  padding: 24px 20px 32px;
-  color: var(--ink-3);
-  font-size: 11px;
-  border-top: 1px solid var(--rule);
-  margin-top: 32px;
-  font-family: var(--font-mono);
-  letter-spacing: 0.02em;
-}
-footer.app-foot a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid var(--rule); }
-footer.app-foot a:hover { color: var(--signal); border-bottom-color: var(--signal); }
-footer.app-foot div + div { margin-top: 8px; color: var(--ink-2); }
+  /* Wind rose */
+  .windrose-wrap { display: flex; flex-direction: column; align-items: center; }
+  .windrose-svg { width: 100%; max-width: 360px; height: auto; }
+  .windrose-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; font-size: 11px; color: var(--text-secondary); }
+  .windrose-legend .swatch { display: inline-block; width: 12px; height: 8px; vertical-align: middle; margin-right: 4px; border-radius: 1px; }
 
-/* =============================================================================
-   QR CODE
-   ============================================================================= */
-#qr-container {
-  display: flex; justify-content: center;
-  padding: 16px; background: white;
-  border-radius: var(--r-2);
-}
+  /* Recommendation list */
+  .rec-list { list-style: none; padding: 0; margin: 0; }
+  .rec-list li {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border-low);
+    display: flex; gap: 14px; align-items: flex-start;
+  }
+  .rec-list li:last-child { border-bottom: none; }
+  .rec-list .rec-icon {
+    flex-shrink: 0;
+    width: 32px; height: 32px;
+    border-radius: var(--r-sm);
+    background: var(--bg-surface-3);
+    border: 1px solid var(--border-mid);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .rec-list .rec-body { flex: 1; }
+  .rec-list .rec-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    font-weight: 600;
+  }
+  .rec-list .rec-value {
+    font-size: 16px; font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 2px;
+  }
+  .rec-list .rec-note {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    line-height: 1.5;
+  }
 
-/* =============================================================================
-   TOOLTIP
-   ============================================================================= */
-[data-tooltip] {
-  position: relative; cursor: help;
-  border-bottom: 1px dashed var(--rule-strong);
-}
-[data-tooltip]:hover::after {
-  content: attr(data-tooltip);
-  position: absolute; bottom: 100%; left: 0;
-  background: var(--bg-panel);
-  border: 1px solid var(--rule-strong);
-  padding: 6px 10px;
-  border-radius: var(--r-2);
-  font-size: 11px;
-  color: var(--ink-1);
-  white-space: nowrap;
-  z-index: 50;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-}
+  /* Alert blocks */
+  .alert {
+    border-radius: var(--r-md);
+    padding: 12px 14px;
+    border: 1px solid;
+    display: flex; gap: 12px;
+    font-size: 12px;
+    margin: 10px 0;
+  }
+  .alert-warn  { background: var(--warn-fade);  border-color: var(--warn);  color: var(--warn); }
+  .alert-error { background: var(--error-fade); border-color: var(--error); color: var(--error); }
+  .alert-info  { background: var(--accent-fade);border-color: var(--accent-dim); color: var(--accent); }
+  .alert-success { background: var(--success-fade); border-color: var(--success); color: var(--success); }
+  .alert .icon { font-weight: 700; flex-shrink: 0; }
+  .alert .msg { color: var(--text-primary); }
 
-/* =============================================================================
-   PRINT
-   ============================================================================= */
-@media print {
-  #topbar, #toast-container, #loading-overlay, #status-strip, .no-print { display: none !important; }
-  body { background: white; color: black; padding-bottom: 0; background-image: none; }
-  main { grid-template-columns: 1fr; }
-  #ctx-rail { background: white; border: none; height: auto; position: static; }
-  .panel { border: 1px solid #ccc; background: white; page-break-inside: avoid; }
-}
+  /* Toast container */
+  #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+  .toast {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-mid);
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    border-radius: var(--r-md);
+    font-size: 13px;
+    box-shadow: var(--shadow-lg);
+    min-width: 280px; max-width: 400px;
+    animation: toast-in 0.25s ease-out;
+  }
+  .toast.error { border-left-color: var(--error); }
+  .toast.success { border-left-color: var(--success); }
+  @keyframes toast-in { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-/* =============================================================================
-   TWEAKS PANEL (for Tweaks toggle)
-   ============================================================================= */
-#tweaks-panel {
-  position: fixed;
-  bottom: 40px;
-  right: 16px;
-  width: 280px;
-  background: var(--bg-panel);
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--r-3);
-  padding: 14px 16px;
-  z-index: 95;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.6);
-  font-size: 12px;
-  display: none;
-}
-#tweaks-panel.show { display: block; }
-#tweaks-panel .tw-head {
-  display: flex; align-items: center; justify-content: space-between;
-  margin: -2px 0 12px 0;
-  font-size: 10px;
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--ink-2);
-}
-#tweaks-panel .tw-head .close-x {
-  background: none; border: none; color: var(--ink-3);
-  font-family: var(--font-mono); cursor: pointer; font-size: 14px;
-  line-height: 1; padding: 0;
-}
-#tweaks-panel .tw-head .close-x:hover { color: var(--ink-1); }
-#tweaks-panel .tw-row { margin-bottom: 12px; }
-#tweaks-panel .tw-row:last-child { margin-bottom: 0; }
-#tweaks-panel .tw-label {
-  font-size: 10px; font-family: var(--font-mono);
-  text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--ink-3); margin-bottom: 6px;
-}
-#tweaks-panel .tw-swatches { display: flex; gap: 6px; }
-#tweaks-panel .tw-swatch {
-  width: 22px; height: 22px;
-  border-radius: 50%;
-  border: 2px solid var(--rule-strong);
-  cursor: pointer;
-  transition: var(--t-fast);
-}
-#tweaks-panel .tw-swatch.active { border-color: var(--ink-1); transform: scale(1.1); }
+  /* Loading overlay */
+  #loading-overlay {
+    position: fixed; inset: 0;
+    background: rgba(10,14,20,0.85);
+    z-index: 150;
+    display: none;
+    align-items: center; justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+  #loading-overlay.show { display: flex; }
+  #loading-overlay .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border-low);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading-overlay .label {
+    color: var(--text-secondary); font-size: 13px;
+    font-family: var(--font-mono);
+  }
 
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-tertiary);
+    font-size: 13px;
+  }
+  .empty-state .icon {
+    font-size: 32px; margin-bottom: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-disabled);
+  }
+
+  /* Multi-site table */
+  table.sites-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .sites-table th, .sites-table td {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border-low);
+  }
+  .sites-table th {
+    color: var(--text-tertiary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+  }
+  .sites-table td.num { text-align: right; }
+  .sites-table tr:hover td { background: var(--bg-surface-2); }
+
+  /* Methodology disclosure */
+  details {
+    border: 1px solid var(--border-low);
+    border-radius: var(--r-md);
+    padding: 0;
+    background: var(--bg-surface-1);
+  }
+  details summary {
+    cursor: pointer;
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    list-style: none;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::after {
+    content: '+';
+    float: right; color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    transition: transform 0.2s;
+  }
+  details[open] summary::after { content: '−'; }
+  details .detail-body { padding: 0 16px 16px 16px; font-size: 13px; color: var(--text-secondary); line-height: 1.75; }
+  details .detail-body p { margin: 10px 0; }
+  details .detail-body strong { color: var(--text-primary); }
+  details .detail-body code { background: var(--bg-base); padding: 2px 6px; border-radius: 3px; color: var(--accent); font-size: 12px; }
+  details .detail-body table { width: 100%; margin: 8px 0; font-size: 11px; }
+  details .detail-body table td { padding: 4px 8px; border-bottom: 1px solid var(--border-low); }
+
+  /* Role visibility */
+  body[data-role="customer"] .engineer-only { display: none !important; }
+  body[data-role="customer"] .field-only    { display: none !important; }
+  body[data-role="field"]    .engineer-only { display: none !important; }
+  body[data-role="field"]    .customer-only { display: none !important; }
+  body[data-role="engineer"] .field-only    { display: none !important; }
+  body[data-role="engineer"] .customer-only { display: none !important; }
+
+  /* Field role specific layout */
+  body[data-role="field"] main { max-width: 640px; padding: 16px; }
+  body[data-role="field"] .panel { padding: 16px; }
+  body[data-role="field"] .compass-svg { width: 280px; height: 280px; }
+
+  /* Chart container */
+  .chart-wrap { position: relative; height: 280px; }
+  .chart-wrap.tall { height: 320px; }
+
+  /* Helper text */
+  .help { font-size: 12px; color: var(--text-secondary); margin-top: 6px; line-height: 1.55; }
+  .help strong { color: var(--text-primary); font-weight: 600; }
+
+  /* Print styles for PDF export fallback */
+  @media print {
+    #topbar, #toast-container, #loading-overlay, .no-print { display: none !important; }
+    body { background: white; color: black; }
+    .panel { border: 1px solid #ccc; background: white; page-break-inside: avoid; }
+  }
+
+  /* Map controls in dark mode */
+  .leaflet-bar a {
+    background: var(--bg-surface-2) !important;
+    color: var(--text-primary) !important;
+    border-bottom: 1px solid var(--border-low) !important;
+  }
+  .leaflet-bar a:hover { background: var(--bg-surface-3) !important; }
+  .leaflet-control-attribution {
+    background: rgba(10,14,20,0.7) !important;
+    color: var(--text-tertiary) !important;
+    font-size: 9px !important;
+  }
+  .leaflet-control-attribution a { color: var(--text-secondary) !important; }
+
+  /* Site marker pulse animation */
+  .site-marker {
+    width: 14px; height: 14px;
+    background: var(--accent);
+    border: 2px solid #08161a;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(79,212,230,0.6);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(79,212,230,0.6); }
+    70%  { box-shadow: 0 0 0 14px rgba(79,212,230,0); }
+    100% { box-shadow: 0 0 0 0 rgba(79,212,230,0); }
+  }
+
+  /* QR */
+  #qr-container { display: flex; justify-content: center; padding: 16px; background: white; border-radius: var(--r-md); }
+
+  /* Tooltip helper */
+  [data-tooltip] { position: relative; cursor: help; border-bottom: 1px dashed var(--border-mid); }
+  [data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute; bottom: 100%; left: 0;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-mid);
+    padding: 6px 10px;
+    border-radius: var(--r-sm);
+    font-size: 11px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    z-index: 50;
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Footer */
+  footer.app-foot {
+    text-align: center;
+    padding: 32px 20px;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    border-top: 1px solid var(--border-low);
+    margin-top: 32px;
+  }
+  footer.app-foot a { color: var(--text-secondary); text-decoration: none; }
+  footer.app-foot a:hover { color: var(--accent); }
 </style>
 </head>
 
-<body data-role="engineer" data-density="comfortable">
+<body data-role="engineer">
 
 <!-- ===== TOP BAR ===== -->
 <header id="topbar">
   <div class="brand">
     <div class="brand-mark">RRU</div>
-    <div class="brand-title">
-      <div class="b1" data-i18n="brand.title">5G RRU 戶外基站散熱與佈建方位評估</div>
-      <div class="b2" data-i18n="brand.sub">v1.0 · ENGINEERING EDITION</div>
+    <div>
+      <div data-i18n="brand.title">5G RRU Site Thermal Advisor</div>
     </div>
+    <div class="brand-sub mono" data-i18n="brand.sub">v1.0 · Engineering Edition</div>
   </div>
 
-  <div class="toolbar">
-    <!-- Role switcher -->
-    <div class="seg-control" id="role-switch" title="View as">
-      <button data-role="engineer" class="active" data-i18n="role.engineer">熱流工程師</button>
-      <button data-role="customer" data-i18n="role.customer">客戶</button>
-      <button data-role="field" data-i18n="role.field">現場工程師</button>
-    </div>
+  <div class="spacer"></div>
 
-    <!-- Density -->
-    <div class="seg-control" id="density-switch" title="Density">
-      <button data-density="comfortable" class="active">舒適</button>
-      <button data-density="compact">緊湊</button>
-    </div>
-
-    <!-- Language -->
-    <div class="seg-control" id="lang-switch">
-      <button data-lang="zh" class="active">中</button>
-      <button data-lang="en">EN</button>
-    </div>
-
-    <a class="gh-link" href="https://github.com/Tedus-AI/5G-RRU-Wind-Speed-and-Deployment-Orientation-Assessment-Tool" target="_blank" rel="noopener" id="gh-link">
-      ↗ GITHUB
-    </a>
+  <!-- Role switcher -->
+  <div class="seg-control" id="role-switch">
+    <button data-role="engineer" class="active" data-i18n="role.engineer">熱流工程師</button>
+    <button data-role="customer" data-i18n="role.customer">客戶</button>
+    <button data-role="field" data-i18n="role.field">現場工程師</button>
   </div>
+
+  <!-- Language switcher -->
+  <div class="seg-control" id="lang-switch">
+    <button data-lang="zh" class="active">中</button>
+    <button data-lang="en">EN</button>
+  </div>
+
+  <a class="gh-link" href="https://github.com/" target="_blank" rel="noopener" id="gh-link">
+    <span class="mono">↗</span> GitHub
+  </a>
 </header>
 
-<!-- ===== MAIN: two-column shell ===== -->
+<!-- ===== MAIN ===== -->
 <main>
 
-  <!-- ===== LEFT RAIL: site context (sticky) ===== -->
-  <aside id="ctx-rail">
-
-    <!-- Site location -->
-    <div class="rail-section" id="sec-location">
-      <div class="panel-head" style="margin-bottom:14px;">
-        <div class="title"><span class="step">01</span><span data-i18n="loc.title">SITE LOCATION</span></div>
-        <div class="badge mono" id="coords-badge">— · —</div>
-      </div>
-
-      <label data-i18n="loc.address">地址 / 地名 / 座標</label>
-      <input type="text" id="address-input" placeholder="台北 101 / 25.04, 121.56" />
-
-      <div style="display:flex; gap:6px; margin-top:8px;">
-        <button class="btn btn-primary btn-sm" id="search-btn" style="flex:1;">
-          <span class="mono">⌕</span> <span data-i18n="loc.search">載入氣候資料</span>
-        </button>
-        <button class="btn btn-ghost btn-sm" id="locate-btn" data-tooltip="Use current location" title="Use current location">
-          <span class="mono">⊙</span>
-        </button>
-      </div>
-
-      <div id="map" style="margin-top:14px;"></div>
-
-      <div style="margin-top:14px;">
-        <div class="field-label" data-i18n="loc.presets">最近查詢</div>
-        <div class="preset-row" id="presets-row">
-          <!-- populated dynamically -->
-        </div>
-      </div>
-
-      <p class="field-help" style="margin-top:14px;line-height:1.6;">
-        <span data-i18n="loc.help">系統會抓取該座標近 5 年的歷史氣候資料（Open-Meteo Archive API）。資料來源公開、免費、無需 API key。</span><br>
-        <span style="color:var(--ink-2);font-size:10.5px;" data-i18n="loc.help2">氣象資料非來自觀測站，而是 ECMWF ERA5／ERA5-Land 再分析資料。</span>
-      </p>
+  <!-- ===== Section 1: Site Location ===== -->
+  <section class="panel" id="sec-location">
+    <div class="panel-head">
+      <div class="title" data-i18n="loc.title">Site Location</div>
+      <div class="badge mono" id="coords-badge">— · —</div>
     </div>
 
-    <!-- Site parameters -->
-    <div class="rail-section" id="sec-params">
-      <div class="panel-head" style="margin-bottom:14px;">
-        <div class="title"><span class="step">02</span><span data-i18n="params.title">SITE PARAMETERS</span></div>
-        <div class="badge mono">INPUT</div>
-      </div>
-
-      <div style="display:grid; gap:14px;">
-        <div>
-          <label data-i18n="params.height">架設高度 (m)</label>
-          <input type="number" id="param-height" value="20" min="3" max="120" step="1" />
-          <p class="field-help" data-i18n="params.height.help">距地面架設高度，用於 Power Law 風速修正</p>
-        </div>
-
-        <div>
-          <label data-i18n="params.terrain">地形粗糙度</label>
-          <select id="param-terrain">
-            <option value="0.10" data-i18n="terrain.coast">海岸 / 開闊海域 (α = 0.10)</option>
-            <option value="0.14" selected data-i18n="terrain.open">開闊地 / 草原 (α = 0.14)</option>
-            <option value="0.22" data-i18n="terrain.suburb">郊區 / 一般住宅區 (α = 0.22)</option>
-            <option value="0.33" data-i18n="terrain.urban">市區 / 高樓密集 (α = 0.33)</option>
-          </select>
-          <p class="field-help" data-i18n="params.terrain.help">影響 Power Law 指數 α 值</p>
-        </div>
-
-        <div>
-          <label data-i18n="params.shielding">近距遮蔽</label>
-          <select id="param-shielding">
-            <option value="1.0" selected data-i18n="shield.none">無遮蔽 (×1.0)</option>
-            <option value="0.7" data-i18n="shield.partial">單向遮蔽 (×0.7)</option>
-            <option value="0.4" data-i18n="shield.heavy">多向遮蔽 (×0.4)</option>
-            <option value="0.2" data-i18n="shield.severe">嚴重遮蔽 / 凹角 (×0.2)</option>
-          </select>
-          <div id="shield-suggest" style="display:none;margin-top:6px;padding:8px 10px;border-radius:4px;background:var(--signal-wash);border:1px solid var(--signal-line);font-size:11px;line-height:1.55;color:var(--ink-2);cursor:pointer;" title="Click to apply"></div>
-          <p class="field-help" data-i18n="params.shielding.help">5 m 內遮蔽物造成的風速折減</p>
-        </div>
-
-        <div>
-          <label data-i18n="params.absorptance">機殼太陽吸收率 (α<sub>s</sub>)</label>
-          <select id="param-absorptance">
-            <option value="0.30" selected data-i18n="abs.white">白色烤漆 新品 (0.30)</option>
-            <option value="0.45" data-i18n="abs.aged">白色烤漆 老化 (0.45)</option>
-            <option value="0.50" data-i18n="abs.lgray">淺灰色 (0.50)</option>
-            <option value="0.75" data-i18n="abs.dgray">深灰色 (0.75)</option>
-          </select>
-          <p class="field-help" data-i18n="params.absorptance.help">機殼表面太陽吸收率,影響 Sol-air temperature 計算</p>
-        </div>
-
-        <div>
-          <label data-i18n="params.sector">天線扇區方位 (°)</label>
-          <input type="number" id="param-sector" value="180" min="0" max="359" step="5" />
-          <p class="field-help" data-i18n="params.sector.help">天線扇區指向（0=北 / 90=東 / 180=南 / 270=西）。鰭片方向會以此為約束</p>
-        </div>
-      </div>
-
-      <div style="display:flex; flex-direction:column; gap:6px; margin-top:18px;">
-        <button class="btn btn-primary" id="run-btn">
-          <span class="mono">▶</span> <span data-i18n="params.run">執行站點分析</span>
-        </button>
-        <div style="display:flex; gap:6px;">
-          <button class="btn btn-ghost btn-sm" id="save-site-btn" style="flex:1;">
-            <span class="mono">+</span> <span data-i18n="params.save">儲存站點</span>
+    <div class="grid grid-asym">
+      <div>
+        <label data-i18n="loc.address">地址 / 地名 / 座標</label>
+        <input type="text" id="address-input" placeholder="例：新北市汐止區新台五路一段 / Taipei 101 / 25.04, 121.56" />
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button class="btn btn-primary" id="search-btn">
+            <span class="mono">⌕</span> <span data-i18n="loc.search">Search & Load Climate</span>
           </button>
-          <button class="btn btn-ghost btn-sm engineer-only" id="export-pdf-btn" style="flex:1;">
-            <span class="mono">⇩</span> <span data-i18n="params.pdf">匯出 PDF</span>
+          <button class="btn btn-ghost" id="locate-btn" data-tooltip="Use current location">
+            <span class="mono">⊙</span> <span data-i18n="loc.locate">My Location</span>
           </button>
         </div>
-      </div>
-    </div>
 
-  </aside>
-
-  <!-- ===== RIGHT WORKSPACE: data + analysis ===== -->
-  <div id="workspace">
-
-    <!-- ===== Climate Summary ===== -->
-    <section class="panel" id="sec-summary">
-      <div class="panel-head">
-        <div class="title"><span class="step">03</span><span data-i18n="summary.title">CLIMATE SUMMARY · 5-YEAR HISTORY</span></div>
-        <div class="badge mono" id="summary-period">— · —</div>
-      </div>
-      <div id="summary-grid" class="grid grid-6">
-        <div class="empty-state" style="grid-column: 1 / -1;">
-          <div class="icon">○</div>
-          <div data-i18n="empty.run">RUN ANALYSIS TO SEE CLIMATE DATA</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===== Climate Distribution ===== -->
-    <section class="panel">
-      <div class="panel-head">
-        <div class="title"><span class="step">04</span><span data-i18n="charts.title">CLIMATE DISTRIBUTION</span></div>
-        <div class="badge mono">OPEN-METEO · ERA5</div>
-      </div>
-
-      <div class="grid grid-asym-r">
-        <div>
-          <div class="field-label" style="margin-bottom:10px;" data-i18n="chart.temp">AMBIENT TEMPERATURE HISTOGRAM</div>
-          <div class="chart-wrap"><canvas id="temp-chart"></canvas></div>
-          <p class="field-help" data-i18n="chart.temp.help">基於近 5 年（約 43,800 筆）的逐時氣溫資料所建立的溫度分佈；Y 軸已標準化為「平均每年的小時數」（= 5 年總和 ÷ 5）。紅色虛線為傳統散熱設計常用的 55 °C 假設，可直接比對本站點實際分佈與設計包絡的差距。</p>
-        </div>
-        <div>
-          <div class="field-label" style="margin-bottom:10px;" data-i18n="chart.wind">WIND ROSE · 10 m HEIGHT</div>
-          <div class="windrose-wrap">
-            <svg class="windrose-svg" id="windrose-svg" viewBox="0 0 360 360"></svg>
-            <div class="windrose-legend" id="windrose-legend"></div>
+        <div style="margin-top:14px;">
+          <div class="stat-label" data-i18n="loc.presets">最近查詢紀錄</div>
+          <div class="preset-row" id="presets-row">
+            <!-- Dynamically populated from localStorage -->
           </div>
         </div>
-      </div>
-    </section>
 
-    <!-- ===== Engineering Recommendations ===== -->
-    <section class="panel" id="sec-recommendations">
-      <div class="panel-head">
-        <div class="title"><span class="step">05</span><span data-i18n="rec.title">ENGINEERING RECOMMENDATIONS</span></div>
-        <div class="badge mono is-clickable" id="rec-badge">PENDING</div>
+        <p class="help" style="line-height:1.6;">
+          <span data-i18n="loc.help">系統會抓取該座標近 5 年的歷史氣候資料（Open-Meteo Archive API）。資料來源公開、免費、無需 API key。</span><br>
+          <span style="color:var(--text-tertiary);font-size:10px;" data-i18n="loc.help2">氣象資料非來自觀測站，而是 ECMWF ERA5／ERA5-Land 再分析資料：將全球觀測（氣象站、衛星、雷達、探空氣球等）輸入數值天氣模式反算，產出全球網格化逐時資料集。ERA5 解析度 ~31 km；ERA5-Land ~9 km（僅陸地）；Open-Meteo 以 bilinear 內插取值。</span>
+        </p>
       </div>
 
-      <div class="rec-grid">
-        <div class="compass-wrap">
-          <svg class="compass-svg" id="compass-svg" viewBox="-10 -10 260 260"></svg>
-          <div class="compass-cap" data-i18n="rec.compass">FIN ORIENTATION COMPASS</div>
+      <div>
+        <div id="map"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Section 2: Site Parameters ===== -->
+  <section class="panel" id="sec-params">
+    <div class="panel-head">
+      <div class="title" data-i18n="params.title">Site Parameters</div>
+      <div class="badge mono">STEP 2</div>
+    </div>
+
+    <div class="grid grid-5">
+      <div>
+        <label data-i18n="params.height">Antenna Height (m)</label>
+        <input type="number" id="param-height" value="20" min="3" max="120" step="1" />
+        <p class="help" data-i18n="params.height.help">距地面架設高度，用於 Power Law 風速修正</p>
+      </div>
+
+      <div>
+        <label data-i18n="params.terrain">Terrain Roughness</label>
+        <select id="param-terrain">
+          <option value="0.10" data-i18n="terrain.coast">海岸 / 開闊海域 (α = 0.10)</option>
+          <option value="0.14" selected data-i18n="terrain.open">開闊地 / 草原 (α = 0.14)</option>
+          <option value="0.22" data-i18n="terrain.suburb">郊區 / 一般住宅區 (α = 0.22)</option>
+          <option value="0.33" data-i18n="terrain.urban">市區 / 高樓密集 (α = 0.33)</option>
+        </select>
+        <p class="help" data-i18n="params.terrain.help">影響 Power Law 指數 α 值</p>
+      </div>
+
+      <div>
+        <label data-i18n="params.shielding">Local Shielding</label>
+        <select id="param-shielding">
+          <option value="1.0" selected data-i18n="shield.none">無遮蔽 (×1.0)</option>
+          <option value="0.7" data-i18n="shield.partial">單向遮蔽 (×0.7)</option>
+          <option value="0.4" data-i18n="shield.heavy">多向遮蔽 (×0.4)</option>
+          <option value="0.2" data-i18n="shield.severe">嚴重遮蔽 / 凹角 (×0.2)</option>
+        </select>
+        <div id="shield-suggest" style="display:none;margin-top:4px;padding:6px 10px;border-radius:6px;background:rgba(79,212,230,0.08);border:1px solid rgba(79,212,230,0.25);font-size:11px;line-height:1.5;color:var(--text-secondary);cursor:pointer;" title="Click to apply">
         </div>
-        <div class="rec-content">
-          <ul class="rec-list" id="rec-list">
-            <li>
-              <div class="rec-icon">○</div>
-              <div class="rec-body">
-                <div class="rec-label">PENDING</div>
-                <div class="rec-value" data-i18n="rec.empty">執行分析以查看建議</div>
-                <div class="rec-note">Site location and parameters are required.</div>
-              </div>
-            </li>
-          </ul>
-          <div id="rec-alerts"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===== Thermal Margin Recovery ===== -->
-    <section class="panel engineer-only" id="sec-margin">
-      <div class="panel-head">
-        <div class="title"><span class="step">06</span><span data-i18n="margin.title">THERMAL MARGIN RECOVERY · VOLUME SAVING</span></div>
-        <div class="badge mono">ENGINEER</div>
+        <p class="help" data-i18n="params.shielding.help">5 m 內遮蔽物造成的風速折減</p>
       </div>
 
-      <div class="grid grid-3">
-        <div>
-          <label data-i18n="margin.tjmax">Component Tj_max (°C)</label>
-          <input type="number" id="margin-tjmax" value="110" min="60" max="200" step="1" />
-          <p class="field-help" data-i18n="margin.tjmax.help">關鍵元件接面最高允許溫度，例如 FPGA / GaN PA</p>
-        </div>
-        <div>
-          <label data-i18n="margin.thetajc">θ<sub>JC</sub> (K/W)</label>
-          <input type="number" id="margin-thetajc" value="0.4" min="0.05" max="20" step="0.05" />
-          <p class="field-help" data-i18n="margin.thetajc.help">封裝 junction-to-case 熱阻</p>
-        </div>
-        <div>
-          <label data-i18n="margin.power">元件功耗 (W)</label>
-          <input type="number" id="margin-power" value="40" min="1" max="2000" step="1" />
-        </div>
+      <div>
+        <label data-i18n="params.absorptance">Surface Absorptance (α<sub>s</sub>)</label>
+        <select id="param-absorptance">
+          <option value="0.30" selected data-i18n="abs.white">白色烤漆 新品 (0.30)</option>
+          <option value="0.45" data-i18n="abs.aged">白色烤漆 老化 (0.45)</option>
+          <option value="0.50" data-i18n="abs.lgray">淺灰色 (0.50)</option>
+          <option value="0.75" data-i18n="abs.dgray">深灰色 (0.75)</option>
+        </select>
+        <p class="help" data-i18n="params.absorptance.help">機殼表面太陽吸收率，影響 Sol-air temperature 計算</p>
       </div>
 
-      <div style="margin-top:18px;" class="grid grid-2">
-        <div class="stat">
-          <div class="stat-label" data-i18n="margin.original">ORIGINAL ENVELOPE · TRADITIONAL</div>
-          <div class="stat-value mono" style="font-size:18px; line-height:1.3;">T<sub>amb</sub> = 55 °C / V = 0 m/s</div>
-          <div class="stat-foot mono" id="margin-orig-detail">θ<sub>CA</sub> required = — K/W</div>
-        </div>
-        <div class="stat stat-accent">
-          <div class="stat-label" data-i18n="margin.realistic">REALISTIC SITE ENVELOPE</div>
-          <div class="stat-value mono" id="margin-realistic-env" style="font-size:18px; line-height:1.3;">T<sub>amb</sub> = — / V = — m/s</div>
-          <div class="stat-foot mono" id="margin-real-detail">θ<sub>CA</sub> available = — K/W</div>
-        </div>
+      <div>
+        <label data-i18n="params.sector">Antenna Sector Azimuth (°)</label>
+        <input type="number" id="param-sector" value="180" min="0" max="359" step="5" />
+        <p class="help" data-i18n="params.sector.help">天線扇區指向（0=北 / 90=東 / 180=南 / 270=西）。鰭片方向會以此為約束</p>
       </div>
+    </div>
 
-      <div id="margin-results" style="margin-top:18px;"></div>
+    <div style="display:flex; gap:10px; margin-top:18px;">
+      <button class="btn btn-primary" id="run-btn">
+        <span class="mono">▶</span> <span data-i18n="params.run">Run Site Analysis</span>
+      </button>
+      <button class="btn btn-ghost" id="save-site-btn">
+        <span class="mono">+</span> <span data-i18n="params.save">Save as Site</span>
+      </button>
+      <button class="btn btn-ghost engineer-only" id="export-pdf-btn">
+        <span class="mono">⇩</span> <span data-i18n="params.pdf">Export PDF Report</span>
+      </button>
+    </div>
+  </section>
 
-      <details style="margin-top:18px;">
-        <summary data-i18n="margin.method">CALCULATION METHODOLOGY</summary>
-        <div class="detail-body">
-          <p><strong>Power Law wind correction:</strong> <code>V_h = V_10 × (h/10)^α × s</code>
-          where <code>α</code> 為地形粗糙度指數（海岸 0.10、開闊地 0.14、郊區 0.22、都會 0.33），
-          <code>s</code> 為遮蔽折減係數。</p>
-          <p><strong>Forced convection coefficient (rough estimate):</strong>
-          <code>h_forced ≈ h_natural × √(1 + V_h / 0.5)</code>，僅作數量級評估，不替代 CFD。</p>
-          <p><strong>Sol-air temperature:</strong> <code>T_sol = T_amb + α_s × G / (h_conv + h_rad)</code><br>
-          其中 <code>α_s</code> = 機殼太陽吸收率（白色新品 0.30、老化 0.45、淺灰 0.50、深灰 0.75），
-          <code>G</code> = 短波輻射量 (W/m²，ERA5 <code>shortwave_radiation</code>)，
-          <code>h_conv = 5.7 + 3.8V</code> (W/m²K，ASHRAE 簡化平板強制對流)，
-          <code>h_rad ≈ 6</code> W/m²K（~40°C 表面溫度之線性化輻射係數）。
-          Sol-air temperature 代表考慮太陽直射後的等效環境溫度，用於評估日射對機殼表面的加熱效應。</p>
-          <p><strong>High-temp concurrent wind:</strong> 取氣溫 ≥ P90 的所有小時，統計對應風速的 P10（保守值）、中位數（典型值）與靜風率。
-          此方法捕捉「高溫＋低風速」同時出現的 joint probability，比分開統計更接近真實 worst-case operating envelope。</p>
-          <p><strong>Margin recovery (°C):</strong> <code>ΔT = (55 − T_sol-air,P95)</code>，其中 T<sub>sol-air,P95</sub> 為熱季 Sol-air P95（已含日射效應），搭配風速增益後等效散熱餘裕。</p>
-          <p><strong>Volume saving heuristic:</strong> 假設散熱器熱阻 <code>θ_HS ∝ 1/h × 1/A_fin</code>，鰭片面積與體積近似線性，
-          因此 <code>ΔV/V ≈ 1 − θ_HS,new / θ_HS,orig</code>。實務上仍需 CFD 驗證。</p>
-        </div>
-      </details>
-    </section>
-
-    <!-- ===== Multi-Site Comparison ===== -->
-    <section class="panel engineer-only" id="sec-multisite">
-      <div class="panel-head">
-        <div class="title"><span class="step">07</span><span data-i18n="multi.title">MULTI-SITE COMPARISON</span></div>
-        <div class="badge mono"><span id="multi-count">0</span> SITES</div>
+  <!-- ===== Section 3: Climate Summary ===== -->
+  <section class="panel" id="sec-summary">
+    <div class="panel-head">
+      <div class="title" data-i18n="summary.title">Climate Summary (5-yr History)</div>
+      <div class="badge mono" id="summary-period">— · —</div>
+    </div>
+    <div id="summary-grid" class="grid grid-6">
+      <div class="empty-state" style="grid-column: 1 / -1;">
+        <div class="icon">○</div>
+        <div data-i18n="empty.run">Run analysis to see climate data</div>
       </div>
+    </div>
+  </section>
 
-      <div id="multi-table-wrap">
-        <div class="empty-state">
-          <div class="icon">⊟</div>
-          <div data-i18n="multi.empty">尚未儲存站點。執行分析後點擊「儲存站點」進行比較。</div>
-        </div>
-      </div>
+  <!-- ===== Section 4: Temperature Distribution + Wind Rose ===== -->
+  <section class="panel">
+    <div class="panel-head">
+      <div class="title" data-i18n="charts.title">Climate Distribution Analysis</div>
+      <div class="badge mono">DATA · OPEN-METEO</div>
+    </div>
 
-      <div style="display:flex; gap:8px; margin-top:14px;">
-        <button class="btn btn-ghost btn-sm" id="export-csv-btn">
-          <span class="mono">⇩</span> EXPORT CSV
-        </button>
-        <button class="btn btn-ghost btn-sm" id="clear-sites-btn">
-          <span class="mono">×</span> CLEAR ALL
-        </button>
+    <div class="grid grid-asym-r">
+      <div>
+        <div class="stat-label" style="margin-bottom:8px;" data-i18n="chart.temp">AMBIENT TEMPERATURE HISTOGRAM</div>
+        <div class="chart-wrap"><canvas id="temp-chart"></canvas></div>
+        <p class="help" data-i18n="chart.temp.help">基於近 5 年（約 43,800 筆）的逐時氣溫資料所建立的溫度分佈；Y 軸已標準化為「平均每年的小時數」（= 5 年總和 ÷ 5）。紅色虛線為傳統散熱設計常用的 55 °C 假設，可直接比對本站點實際分佈與設計包絡的差距。</p>
       </div>
-    </section>
-
-    <!-- ===== Field Installation Card ===== -->
-    <section class="panel field-only" id="sec-field">
-      <div class="panel-head">
-        <div class="title"><span class="step">08</span><span data-i18n="field.title">FIELD INSTALLATION CARD</span></div>
-        <div class="badge mono">FIELD</div>
-      </div>
-      <div id="field-summary">
-        <div class="empty-state">
-          <div class="icon">⊙</div>
-          <div data-i18n="empty.run">執行分析以查看安裝指南</div>
+      <div>
+        <div class="stat-label" style="margin-bottom:8px;" data-i18n="chart.wind">WIND ROSE (10 m HEIGHT)</div>
+        <div class="windrose-wrap">
+          <svg class="windrose-svg" id="windrose-svg" viewBox="0 0 360 360"></svg>
+          <div class="windrose-legend" id="windrose-legend"></div>
         </div>
       </div>
-      <div id="qr-container" style="display:none; margin-top:16px;">
-        <div id="qrcode"></div>
+    </div>
+  </section>
+
+  <!-- ===== Section 5: Engineering Recommendations + Compass ===== -->
+  <section class="panel" id="sec-recommendations">
+    <div class="panel-head">
+      <div class="title" data-i18n="rec.title">Engineering Recommendations</div>
+      <div class="badge mono" id="rec-badge">PENDING</div>
+    </div>
+
+    <div class="grid grid-asym">
+      <div class="compass-wrap">
+        <svg class="compass-svg" id="compass-svg" viewBox="-10 -10 260 260"></svg>
+        <div class="stat-label" data-i18n="rec.compass">FIN ORIENTATION COMPASS</div>
       </div>
-    </section>
-
-    <!-- ===== Methodology disclosure ===== -->
-    <section class="panel" id="sec-methodology">
-      <details>
-        <summary data-i18n="meth.title">CALCULATION ASSUMPTIONS &amp; DATA SOURCES</summary>
-        <div class="detail-body meth-zh">
-          <p><strong>氣候資料來源：</strong><a href="https://open-meteo.com/en/docs/historical-weather-api" target="_blank">Open-Meteo Historical Weather API</a>，免費、無需 API key、CC-BY 4.0 授權。預設抓取近 5 年逐時 (hourly) 資料：<code>temperature_2m</code>（地面 2 公尺氣溫）、<code>wind_speed_10m</code>（地面 10 公尺風速）、<code>wind_direction_10m</code>（地面 10 公尺風向）、<code>shortwave_radiation</code>（短波輻射）。底層資料為 ECMWF ERA5 再分析。</p>
-          <p><strong>風速高度修正（Power Law 指數律）：</strong><code>V<sub>h</sub> = V<sub>10</sub> × (h / 10)<sup>α</sup> × s<sub>shield</sub></code>。其中 V<sub>10</sub> 是地面 10 公尺風速，h 是實際安裝高度，α 是地形粗糙度指數，s<sub>shield</sub> 是周邊遮蔽物造成的折減係數。</p>
-          <table>
-            <tr><td>沿海 / 開放海面</td><td>α = 0.10</td></tr>
-            <tr><td>開闊地形 / 草地</td><td>α = 0.14</td></tr>
-            <tr><td>郊區</td><td>α = 0.22</td></tr>
-            <tr><td>密集都市</td><td>α = 0.33</td></tr>
-          </table>
-          <p><strong>主導風向判定：</strong>自動從 5 年逐時資料中找出月均溫最高的 3 個月作為「最熱季」，再取日間 10:00–18:00 的逐時風資料，把 360° 切成 16 個方位（每格 22.5°），計算頻率分佈後取頻率最高者為主風向。自動偵測最熱月份可適應不同緯度與氣候區，無需假設固定月份。之所以只取熱季日間，是因為這段時間才是散熱最緊迫的時段。</p>
-          <p><strong>鰭片方向建議規則：</strong>鰭片走向設定為平行於主導風向，讓氣流可順暢通過鰭片通道並形成強制對流。若主導風向頻率低於 30%（代表風向太分散），系統會降級為「以自然對流為主」並標示警告，不建議依賴風向帶來的散熱增益。</p>
-          <p><strong>扇區約束：</strong>天線扇區指向通常由訊號涵蓋需求決定、不能任意轉動，所以實際上機體面向只能在天線扇區方向 ±45° 的範圍內微調。系統會在這個約束下，找出最接近主風向的合法方向。</p>
-          <p><strong>使用限制與注意事項：</strong>本工具定位為 <em>佈建前的初步環境評估</em>，不是 CFD 模擬的替代品。最終散熱規格仍需以 FloTHERM、Icepak 等 CFD 軟體驗證關鍵 worst-case。Open-Meteo 屬再分析資料，實際微氣候會因附近建物、植被遮蔽、海陸風、都市熱島等效應而與資料有差異；山區、都市峽谷、近海岸等複雜地形建議搭配在地氣象站實測資料交叉驗證。</p>
-        </div>
-        <div class="detail-body meth-en">
-          <p><strong>Climate data source:</strong> <a href="https://open-meteo.com/en/docs/historical-weather-api" target="_blank">Open-Meteo Historical Weather API</a>. Free, no API key, CC-BY 4.0 license. Fetches 5 years of hourly data: <code>temperature_2m</code>, <code>wind_speed_10m</code>, <code>wind_direction_10m</code>, <code>shortwave_radiation</code>. Underlying data is ECMWF ERA5 reanalysis.</p>
-          <p><strong>Wind speed altitude correction (Power Law):</strong> <code>V<sub>h</sub> = V<sub>10</sub> × (h / 10)<sup>α</sup> × s<sub>shield</sub></code>, where V<sub>10</sub> is the 10 m reference wind, h is the actual installation height, α is terrain roughness exponent, and s<sub>shield</sub> is a reduction factor from nearby obstructions.</p>
-          <table>
-            <tr><td>Coastal / Open Sea</td><td>α = 0.10</td></tr>
-            <tr><td>Open terrain / grassland</td><td>α = 0.14</td></tr>
-            <tr><td>Suburban</td><td>α = 0.22</td></tr>
-            <tr><td>Urban dense</td><td>α = 0.33</td></tr>
-          </table>
-          <p><strong>Prevailing wind detection:</strong> Automatically identifies the 3 months with the highest mean temperature from 5 years of hourly data as the "hot season" — no fixed month assumption, adapts to any latitude and climate zone. Uses daytime (10:00–18:00) hourly wind data from these months. Directions are binned into 16 sectors (22.5° each); the highest-frequency bin is selected as the prevailing direction. Restricting to hot-season daytime isolates the window where cooling is most critical.</p>
-          <p><strong>Fin orientation rule:</strong> Fins are aligned parallel to the prevailing wind so airflow passes cleanly through the fin channels (forced convection). If the prevailing direction frequency is below 30% (wind too scattered), the rule degrades to "natural convection dominant" and a warning is shown — forced-convection gains cannot be reliably exploited.</p>
-          <p><strong>Sector constraint:</strong> Antenna sector orientation is dictated by signal coverage and cannot be freely rotated, so the physical unit can only be turned within ±45° of the antenna bearing. The system finds the best allowed orientation within that window.</p>
-          <p><strong>Caveats:</strong> This tool is a <em>pre-deployment site assessment</em>, not a CFD replacement. Final thermal design must still be validated with FloTHERM / Icepak against worst-case scenarios. Open-Meteo is reanalysis data; real microclimates can diverge due to buildings, vegetation, sea-land breeze, urban heat island, etc. For complex terrain (mountains, urban canyons, coastal sites), cross-validate with local weather station data.</p>
-        </div>
-      </details>
-    </section>
-
-    <footer class="app-foot">
-      <div>5G RRU SITE THERMAL ADVISOR · MIT LICENSE ·
-        <a href="https://github.com/Tedus-AI/5G-RRU-Wind-Speed-and-Deployment-Orientation-Assessment-Tool" target="_blank">GITHUB</a> ·
-        <a href="docs/methodology.md" target="_blank">METHODOLOGY</a> ·
-        <a href="https://open-meteo.com/" target="_blank">POWERED BY OPEN-METEO</a>
+      <div>
+        <ul class="rec-list" id="rec-list">
+          <li>
+            <div class="rec-icon">○</div>
+            <div class="rec-body">
+              <div class="rec-label">Pending</div>
+              <div class="rec-value" data-i18n="rec.empty">Run analysis to see recommendations</div>
+              <div class="rec-note">Site location and parameters are required.</div>
+            </div>
+          </li>
+        </ul>
+        <div id="rec-alerts"></div>
       </div>
-      <div>用真實氣候資料替代「55 °C / 0 m/s」過於保守的假設,協助散熱工程師避免 over-design</div>
-    </footer>
+    </div>
+  </section>
 
-  </div><!-- /workspace -->
+  <!-- ===== Section 6: Thermal Margin Recovery (Engineer-only) ===== -->
+  <section class="panel engineer-only" id="sec-margin">
+    <div class="panel-head">
+      <div class="title" data-i18n="margin.title">Thermal Margin Recovery — Volume Saving Estimator</div>
+      <div class="badge mono">ENGINEER</div>
+    </div>
+
+    <div class="grid grid-3">
+      <div>
+        <label data-i18n="margin.tjmax">Component Tj_max (°C)</label>
+        <input type="number" id="margin-tjmax" value="110" min="60" max="200" step="1" />
+        <p class="help" data-i18n="margin.tjmax.help">關鍵元件接面最高允許溫度，例如 FPGA / GaN PA</p>
+      </div>
+      <div>
+        <label data-i18n="margin.thetajc">θ_JC (K/W)</label>
+        <input type="number" id="margin-thetajc" value="0.4" min="0.05" max="20" step="0.05" />
+        <p class="help" data-i18n="margin.thetajc.help">封裝 junction-to-case 熱阻</p>
+      </div>
+      <div>
+        <label data-i18n="margin.power">Component Power (W)</label>
+        <input type="number" id="margin-power" value="40" min="1" max="2000" step="1" />
+      </div>
+    </div>
+
+    <div style="margin-top:18px;" class="grid grid-2">
+      <div class="stat">
+        <div class="stat-label" data-i18n="margin.original">Original Design Envelope</div>
+        <div class="stat-value mono">T<sub>amb</sub> = 55 °C / V = 0 m/s</div>
+        <div class="stat-foot mono" id="margin-orig-detail">θ<sub>CA</sub> required = — K/W</div>
+      </div>
+      <div class="stat stat-accent">
+        <div class="stat-label" data-i18n="margin.realistic">Realistic Site Envelope</div>
+        <div class="stat-value mono" id="margin-realistic-env">T<sub>amb</sub> = — / V = — m/s</div>
+        <div class="stat-foot mono" id="margin-real-detail">θ<sub>CA</sub> available = — K/W</div>
+      </div>
+    </div>
+
+    <div id="margin-results" style="margin-top:18px;"></div>
+
+    <details style="margin-top:18px;">
+      <summary data-i18n="margin.method">Calculation Methodology</summary>
+      <div class="detail-body">
+        <p><strong>Power Law wind correction:</strong> <code>V_h = V_10 × (h/10)^α × s</code>
+        where <code>α</code> 為地形粗糙度指數（海岸 0.10、開闊地 0.14、郊區 0.22、都會 0.33），
+        <code>s</code> 為遮蔽折減係數。</p>
+        <p><strong>Forced convection coefficient (rough estimate):</strong>
+        <code>h_forced ≈ h_natural × √(1 + V_h / 0.5)</code>，僅作數量級評估，不替代 CFD。</p>
+        <p><strong>Sol-air temperature:</strong> <code>T_sol = T_amb + α_s × G / (h_conv + h_rad)</code><br>
+        其中 <code>α_s</code> = 機殼太陽吸收率（白色新品 0.30、老化 0.45、淺灰 0.50、深灰 0.75），
+        <code>G</code> = 短波輻射量 (W/m²，ERA5 <code>shortwave_radiation</code>)，
+        <code>h_conv = 5.7 + 3.8V</code> (W/m²K，ASHRAE 簡化平板強制對流)，
+        <code>h_rad ≈ 6</code> W/m²K（~40°C 表面溫度之線性化輻射係數）。
+        Sol-air temperature 代表考慮太陽直射後的等效環境溫度，用於評估日射對機殼表面的加熱效應。</p>
+        <p><strong>High-temp concurrent wind:</strong> 取氣溫 ≥ P90 的所有小時，統計對應風速的 P10（保守值）、中位數（典型值）與靜風率。
+        此方法捕捉「高溫＋低風速」同時出現的 joint probability，比分開統計更接近真實 worst-case operating envelope。</p>
+        <p><strong>Margin recovery (°C):</strong> <code>ΔT = (55 − T_sol-air,P95)</code>，其中 T<sub>sol-air,P95</sub> 為熱季 Sol-air P95（已含日射效應），搭配風速增益後等效散熱餘裕。</p>
+        <p><strong>Volume saving heuristic:</strong> 假設散熱器熱阻 <code>θ_HS ∝ 1/h × 1/A_fin</code>，鰭片面積與體積近似線性，
+        因此 <code>ΔV/V ≈ 1 − θ_HS,new / θ_HS,orig</code>。實務上仍需 CFD 驗證。</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ===== Section 7: Multi-Site Comparison (Engineer-only) ===== -->
+  <section class="panel engineer-only" id="sec-multisite">
+    <div class="panel-head">
+      <div class="title" data-i18n="multi.title">Multi-Site Comparison</div>
+      <div class="badge mono"><span id="multi-count">0</span> SITES</div>
+    </div>
+
+    <div id="multi-table-wrap">
+      <div class="empty-state">
+        <div class="icon">⊟</div>
+        <div data-i18n="multi.empty">No sites saved yet. Run analysis and click "Save as Site" to compare.</div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px; margin-top:14px;">
+      <button class="btn btn-ghost btn-sm" id="export-csv-btn">
+        <span class="mono">⇩</span> Export CSV
+      </button>
+      <button class="btn btn-ghost btn-sm" id="clear-sites-btn">
+        <span class="mono">×</span> Clear All
+      </button>
+    </div>
+  </section>
+
+  <!-- ===== Section 8: Field Handoff (Field-only) ===== -->
+  <section class="panel field-only" id="sec-field">
+    <div class="panel-head">
+      <div class="title" data-i18n="field.title">Field Installation Card</div>
+      <div class="badge mono">FIELD</div>
+    </div>
+    <div id="field-summary">
+      <div class="empty-state">
+        <div class="icon">⊙</div>
+        <div data-i18n="empty.run">Run analysis to see installation guide</div>
+      </div>
+    </div>
+    <div id="qr-container" style="display:none; margin-top:16px;">
+      <div id="qrcode"></div>
+    </div>
+  </section>
+
+  <!-- Methodology disclosure (always visible) -->
+  <section class="panel" id="sec-methodology">
+    <details>
+      <summary data-i18n="meth.title">Calculation Assumptions & Data Sources</summary>
+      <!-- Chinese version -->
+      <div class="detail-body meth-zh">
+        <p><strong>氣候資料來源：</strong><a href="https://open-meteo.com/en/docs/historical-weather-api" target="_blank" style="color:var(--accent);">Open-Meteo Historical Weather API</a>，免費、無需 API key、CC-BY 4.0 授權。預設抓取近 5 年逐時 (hourly) 資料：<code>temperature_2m</code>（地面 2 公尺氣溫）、<code>wind_speed_10m</code>（地面 10 公尺風速）、<code>wind_direction_10m</code>（地面 10 公尺風向）、<code>shortwave_radiation</code>（短波輻射）。底層資料為 ECMWF ERA5 再分析。</p>
+        <p><strong>風速高度修正（Power Law 指數律）：</strong><code>V<sub>h</sub> = V<sub>10</sub> × (h / 10)<sup>α</sup> × s<sub>shield</sub></code>。其中 V<sub>10</sub> 是地面 10 公尺風速，h 是實際安裝高度，α 是地形粗糙度指數，s<sub>shield</sub> 是周邊遮蔽物造成的折減係數。</p>
+        <table>
+          <tr><td>沿海 / 開放海面</td><td>α = 0.10</td></tr>
+          <tr><td>開闊地形 / 草地</td><td>α = 0.14</td></tr>
+          <tr><td>郊區</td><td>α = 0.22</td></tr>
+          <tr><td>密集都市</td><td>α = 0.33</td></tr>
+        </table>
+        <p><strong>主導風向判定：</strong>自動從 5 年逐時資料中找出月均溫最高的 3 個月作為「最熱季」，再取日間 10:00–18:00 的逐時風資料，把 360° 切成 16 個方位（每格 22.5°），計算頻率分佈後取頻率最高者為主風向。自動偵測最熱月份可適應不同緯度與氣候區，無需假設固定月份。之所以只取熱季日間，是因為這段時間才是散熱最緊迫的時段。</p>
+        <p><strong>鰭片方向建議規則：</strong>鰭片走向設定為平行於主導風向，讓氣流可順暢通過鰭片通道並形成強制對流。若主導風向頻率低於 30%（代表風向太分散），系統會降級為「以自然對流為主」並標示警告，不建議依賴風向帶來的散熱增益。</p>
+        <p><strong>扇區約束：</strong>天線扇區指向通常由訊號涵蓋需求決定、不能任意轉動，所以實際上機體面向只能在天線扇區方向 ±45° 的範圍內微調。系統會在這個約束下，找出最接近主風向的合法方向。</p>
+        <p><strong>使用限制與注意事項：</strong>本工具定位為 <em>佈建前的初步環境評估</em>，不是 CFD 模擬的替代品。最終散熱規格仍需以 FloTHERM、Icepak 等 CFD 軟體驗證關鍵 worst-case。Open-Meteo 屬再分析資料，實際微氣候會因附近建物、植被遮蔽、海陸風、都市熱島等效應而與資料有差異；山區、都市峽谷、近海岸等複雜地形建議搭配在地氣象站實測資料交叉驗證。</p>
+      </div>
+      <!-- English version -->
+      <div class="detail-body meth-en">
+        <p><strong>Climate data source:</strong> <a href="https://open-meteo.com/en/docs/historical-weather-api" target="_blank" style="color:var(--accent);">Open-Meteo Historical Weather API</a>. Free, no API key, CC-BY 4.0 license. Fetches 5 years of hourly data: <code>temperature_2m</code>, <code>wind_speed_10m</code>, <code>wind_direction_10m</code>, <code>shortwave_radiation</code>. Underlying data is ECMWF ERA5 reanalysis.</p>
+        <p><strong>Wind speed altitude correction (Power Law):</strong> <code>V<sub>h</sub> = V<sub>10</sub> × (h / 10)<sup>α</sup> × s<sub>shield</sub></code>, where V<sub>10</sub> is the 10 m reference wind, h is the actual installation height, α is terrain roughness exponent, and s<sub>shield</sub> is a reduction factor from nearby obstructions.</p>
+        <table>
+          <tr><td>Coastal / Open Sea</td><td>α = 0.10</td></tr>
+          <tr><td>Open terrain / grassland</td><td>α = 0.14</td></tr>
+          <tr><td>Suburban</td><td>α = 0.22</td></tr>
+          <tr><td>Urban dense</td><td>α = 0.33</td></tr>
+        </table>
+        <p><strong>Prevailing wind detection:</strong> Automatically identifies the 3 months with the highest mean temperature from 5 years of hourly data as the "hot season" — no fixed month assumption, adapts to any latitude and climate zone. Uses daytime (10:00–18:00) hourly wind data from these months. Directions are binned into 16 sectors (22.5° each); the highest-frequency bin is selected as the prevailing direction. Restricting to hot-season daytime isolates the window where cooling is most critical.</p>
+        <p><strong>Fin orientation rule:</strong> Fins are aligned parallel to the prevailing wind so airflow passes cleanly through the fin channels (forced convection). If the prevailing direction frequency is below 30% (wind too scattered), the rule degrades to "natural convection dominant" and a warning is shown — forced-convection gains cannot be reliably exploited.</p>
+        <p><strong>Sector constraint:</strong> Antenna sector orientation is dictated by signal coverage and cannot be freely rotated, so the physical unit can only be turned within ±45° of the antenna bearing. The system finds the best allowed orientation within that window.</p>
+        <p><strong>Caveats:</strong> This tool is a <em>pre-deployment site assessment</em>, not a CFD replacement. Final thermal design must still be validated with FloTHERM / Icepak against worst-case scenarios. Open-Meteo is reanalysis data; real microclimates can diverge due to buildings, vegetation, sea-land breeze, urban heat island, etc. For complex terrain (mountains, urban canyons, coastal sites), cross-validate with local weather station data.</p>
+      </div>
+    </details>
+  </section>
+
 </main>
 
-<!-- ===== STATUS STRIP (CAD-app feel) ===== -->
-<div id="status-strip">
-  <div class="ss-item ok" id="ss-data"><span class="dot"></span><span class="ss-key">DATA</span><span class="ss-val">OPEN-METEO ERA5</span></div>
-  <div class="ss-sep">│</div>
-  <div class="ss-item" id="ss-period"><span class="ss-key">PERIOD</span><span class="ss-val" id="ss-period-val">— → —</span></div>
-  <div class="ss-sep">│</div>
-  <div class="ss-item" id="ss-coords"><span class="ss-key">SITE</span><span class="ss-val" id="ss-coords-val">— · —</span></div>
-  <div class="ss-sep">│</div>
-  <div class="ss-item" id="ss-status"><span class="dot"></span><span class="ss-key">STATUS</span><span class="ss-val" id="ss-status-val">READY</span></div>
-  <div class="spacer"></div>
-  <div class="ss-item"><span class="ss-key">v1.0</span></div>
-</div>
+<footer class="app-foot">
+  <div>5G RRU Site Thermal Advisor · MIT License ·
+    <a href="https://github.com/" target="_blank">GitHub</a> ·
+    <a href="docs/methodology.md" target="_blank">Methodology</a> ·
+    <a href="https://open-meteo.com/" target="_blank">Powered by Open-Meteo</a>
+  </div>
+  <div style="margin-top:6px;">設計目的：用真實氣候資料替代「55 °C / 0 m/s」過於保守的假設，協助散熱工程師避免 over-design。</div>
+</footer>
 
 <!-- Toast container -->
 <div id="toast-container"></div>
@@ -1600,39 +982,7 @@ footer.app-foot div + div { margin-top: 8px; color: var(--ink-2); }
 <!-- Loading overlay -->
 <div id="loading-overlay">
   <div class="spinner"></div>
-  <div class="label" id="loading-label">FETCHING CLIMATE DATA…</div>
-</div>
-
-<!-- Tweaks panel -->
-<div id="tweaks-panel">
-  <div class="tw-head">
-    <span>TWEAKS</span>
-    <button class="close-x" id="tw-close">×</button>
-  </div>
-  <div class="tw-row">
-    <div class="tw-label">ACCENT COLOR</div>
-    <div class="tw-swatches" id="tw-accent">
-      <div class="tw-swatch active" data-color="#C96442" style="background:#C96442" title="Claude Crail"></div>
-      <div class="tw-swatch" data-color="#C7913B" style="background:#C7913B" title="Amber"></div>
-      <div class="tw-swatch" data-color="#5C7C8A" style="background:#5C7C8A" title="Slate Teal"></div>
-      <div class="tw-swatch" data-color="#7C6F4A" style="background:#7C6F4A" title="Olive"></div>
-      <div class="tw-swatch" data-color="#8B5A8C" style="background:#8B5A8C" title="Plum"></div>
-      <div class="tw-swatch" data-color="#3F6B5E" style="background:#3F6B5E" title="Forest"></div>
-    </div>
-  </div>
-  <div class="tw-row">
-    <div class="tw-label">WORKSPACE GRID</div>
-    <div style="display:flex; gap:6px;">
-      <button class="btn btn-ghost btn-sm" data-grid="on" style="flex:1;">ON</button>
-      <button class="btn btn-ghost btn-sm" data-grid="off" style="flex:1;">OFF</button>
-    </div>
-  </div>
-  <div class="tw-row">
-    <div class="tw-label">DESIGN BASELINE</div>
-    <div style="font-size:11px; color:var(--ink-2); line-height:1.55;">
-      Dashed red line at <span class="mono" style="color:var(--hot);">55 °C</span> on the histogram = the conservative thermal design assumption this tool is challenging.
-    </div>
-  </div>
+  <div class="label" id="loading-label">Fetching climate data…</div>
 </div>
 
 <!-- ===== Application Script ===== -->
@@ -2840,8 +2190,8 @@ function renderCompass(a) {
   // Outer ring
   const ring = document.createElementNS(NS, 'circle');
   ring.setAttribute('cx', cx); ring.setAttribute('cy', cy); ring.setAttribute('r', R);
-  ring.setAttribute('fill', '#FAF7F0');
-  ring.setAttribute('stroke', '#C9BD9F'); ring.setAttribute('stroke-width', '1.5');
+  ring.setAttribute('fill', '#11161f');
+  ring.setAttribute('stroke', '#2e394e'); ring.setAttribute('stroke-width', '1.5');
   svg.appendChild(ring);
 
   // Tick marks every 15°
@@ -2854,7 +2204,7 @@ function renderCompass(a) {
     const tick = document.createElementNS(NS, 'line');
     tick.setAttribute('x1', x1); tick.setAttribute('y1', y1);
     tick.setAttribute('x2', x2); tick.setAttribute('y2', y2);
-    tick.setAttribute('stroke', major ? '#5C5A4F' : '#C9BD9F');
+    tick.setAttribute('stroke', major ? '#94a1b8' : '#3a4660');
     tick.setAttribute('stroke-width', major ? '1.5' : '1');
     svg.appendChild(tick);
   }
@@ -2868,8 +2218,8 @@ function renderCompass(a) {
     const txt = document.createElementNS(NS, 'text');
     txt.setAttribute('x', x); txt.setAttribute('y', y + 4);
     txt.setAttribute('text-anchor', 'middle');
-    txt.setAttribute('fill', deg === 0 ? '#C96442' : '#5C5A4F');
-    txt.setAttribute('font-family', 'JetBrains Mono'); txt.setAttribute('font-size', '11');
+    txt.setAttribute('fill', deg === 0 ? '#ef5a6f' : '#8592ac');
+    txt.setAttribute('font-family', 'IBM Plex Mono'); txt.setAttribute('font-size', '11');
     txt.setAttribute('font-weight', '600');
     txt.textContent = lab;
     svg.appendChild(txt);
@@ -2878,8 +2228,8 @@ function renderCompass(a) {
     sub.setAttribute('x', x);
     sub.setAttribute('y', deg === 0 ? y - 6 : y + 14);
     sub.setAttribute('text-anchor', 'middle');
-    sub.setAttribute('fill', deg === 0 ? '#C96442' : '#82806f');
-    sub.setAttribute('font-family', 'JetBrains Mono'); sub.setAttribute('font-size', '8');
+    sub.setAttribute('fill', deg === 0 ? '#ef5a6f' : '#8592ac');
+    sub.setAttribute('font-family', 'IBM Plex Mono'); sub.setAttribute('font-size', '8');
     sub.setAttribute('opacity', '0.7');
     sub.textContent = deg + '°';
     svg.appendChild(sub);
@@ -2895,119 +2245,78 @@ function renderCompass(a) {
   const wArrow = document.createElementNS(NS, 'line');
   wArrow.setAttribute('x1', wx1); wArrow.setAttribute('y1', wy1);
   wArrow.setAttribute('x2', wx2); wArrow.setAttribute('y2', wy2);
-  wArrow.setAttribute('stroke', '#5C7C8A'); wArrow.setAttribute('stroke-width', '2');
+  wArrow.setAttribute('stroke', '#94a1b8'); wArrow.setAttribute('stroke-width', '2');
   wArrow.setAttribute('marker-end', 'url(#wind-head)');
   svg.appendChild(wArrow);
 
   const defs = document.createElementNS(NS, 'defs');
   defs.innerHTML = `
     <marker id="wind-head" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto">
-      <path d="M0,0 L10,5 L0,10 Z" fill="#5C7C8A"/>
+      <path d="M0,0 L10,5 L0,10 Z" fill="#94a1b8"/>
     </marker>
     <marker id="fin-head" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto">
-      <path d="M0,0 L10,5 L0,10 Z" fill="#C96442"/>
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4fd4e6"/>
     </marker>
   `;
   svg.appendChild(defs);
 
   // RRU icon at center — rotated to match recommendedAz
   // Antenna face (yellow) points toward recommendedAz; fins (cyan) on the back
-  // Detailed RRU icon at compass center (matches the larger top-down RRU diagram, scaled down).
-  // Antenna face points to recommendedAz; fins always run perpendicular to back face.
   const finDeg = a.rec.recommendedAz;
   const rruGroup = document.createElementNS(NS, 'g');
-  // Scale factor: the right-side diagram uses unitW=64; here we want roughly 28px wide
-  const RRU_SCALE = 0.42;
-  rruGroup.setAttribute('transform', `translate(${cx},${cy}) rotate(${finDeg}) scale(${RRU_SCALE})`);
+  rruGroup.setAttribute('transform', `translate(${cx},${cy}) rotate(${finDeg})`);
+  // In this local coordinate system: +Y = antenna face direction (before rotation, pointing down)
+  // We draw the RRU icon pointing UP (antenna at top, fins at bottom), then rotate
 
-  const unitW = 64, unitH = 30;
-  const finBlockH = 14;
-  const cssSig = getComputedStyle(document.documentElement).getPropertyValue('--signal').trim() || '#C96442';
+  const bodyW = 10, bodyH = 18;  // RRU body width × height (compact)
+  const antH = 4;   // antenna strip height
+  const finW = 1.2, finH = 6, finGap = 2;  // individual fin dimensions
+  const finCount = 5;
 
-  // Body
+  // Main body (blue rectangle, rounded top)
   const body = document.createElementNS(NS, 'rect');
-  body.setAttribute('x', -unitW / 2); body.setAttribute('y', -unitH / 2);
-  body.setAttribute('width', unitW); body.setAttribute('height', unitH);
-  body.setAttribute('fill', '#F2ECDD');
-  body.setAttribute('stroke', '#C9BD9F');
-  body.setAttribute('stroke-width', '1.5');
-  body.setAttribute('rx', '2');
+  body.setAttribute('x', -bodyW / 2); body.setAttribute('y', -bodyH / 2);
+  body.setAttribute('width', bodyW); body.setAttribute('height', bodyH);
+  body.setAttribute('rx', '4'); body.setAttribute('ry', '4');
+  body.setAttribute('fill', '#4a90c4'); body.setAttribute('opacity', '0.9');
   rruGroup.appendChild(body);
 
-  // Antenna bar (front edge — faces recommendedAz)
-  const antennaBar = document.createElementNS(NS, 'rect');
-  antennaBar.setAttribute('x', -unitW / 2 + 2);
-  antennaBar.setAttribute('y', -unitH / 2 - 1);
-  antennaBar.setAttribute('width', unitW - 4);
-  antennaBar.setAttribute('height', 4);
-  antennaBar.setAttribute('fill', '#C7913B');
-  antennaBar.setAttribute('rx', '1');
-  rruGroup.appendChild(antennaBar);
+  // Antenna face strip (yellow bar at top = antenna direction)
+  const ant = document.createElementNS(NS, 'rect');
+  ant.setAttribute('x', -bodyW / 2 + 2); ant.setAttribute('y', -bodyH / 2 + 1);
+  ant.setAttribute('width', bodyW - 4); ant.setAttribute('height', antH);
+  ant.setAttribute('rx', '2'); ant.setAttribute('ry', '2');
+  ant.setAttribute('fill', '#f0b429');
+  rruGroup.appendChild(ant);
 
-  // Fin block (back)
-  const finBlock = document.createElementNS(NS, 'rect');
-  finBlock.setAttribute('x', -unitW / 2);
-  finBlock.setAttribute('y', unitH / 2);
-  finBlock.setAttribute('width', unitW);
-  finBlock.setAttribute('height', finBlockH);
-  finBlock.setAttribute('fill', '#EFE7D2');
-  finBlock.setAttribute('stroke', '#C9BD9F');
-  finBlock.setAttribute('stroke-width', '1');
-  finBlock.setAttribute('rx', '1');
-  rruGroup.appendChild(finBlock);
-
-  // Vertical fin lines (perpendicular to back face)
-  const clipId = 'compass-fin-clip-' + Math.floor(Math.random() * 1e6);
-  const cDefs = document.createElementNS(NS, 'defs');
-  const cClip = document.createElementNS(NS, 'clipPath');
-  cClip.setAttribute('id', clipId);
-  const cClipRect = document.createElementNS(NS, 'rect');
-  cClipRect.setAttribute('x', -unitW / 2);
-  cClipRect.setAttribute('y', unitH / 2);
-  cClipRect.setAttribute('width', unitW);
-  cClipRect.setAttribute('height', finBlockH);
-  cClip.appendChild(cClipRect);
-  cDefs.appendChild(cClip);
-  rruGroup.appendChild(cDefs);
-
-  const finsGroup = document.createElementNS(NS, 'g');
-  finsGroup.setAttribute('clip-path', `url(#${clipId})`);
-  const finCount = 9;
-  const yTop = unitH / 2;
-  const yBot = unitH / 2 + finBlockH;
+  // Fins (cyan teeth extending from bottom of body)
+  const finsStartX = -(finCount - 1) * finGap / 2;
   for (let i = 0; i < finCount; i++) {
-    const tt = (i + 0.5) / finCount;
-    const x = -unitW / 2 + tt * unitW;
-    const ln = document.createElementNS(NS, 'line');
-    ln.setAttribute('x1', x); ln.setAttribute('y1', yTop);
-    ln.setAttribute('x2', x); ln.setAttribute('y2', yBot);
-    ln.setAttribute('stroke', cssSig);
-    ln.setAttribute('stroke-width', '1.5');
-    ln.setAttribute('opacity', '0.9');
-    finsGroup.appendChild(ln);
+    const fx = finsStartX + i * finGap;
+    const fin = document.createElementNS(NS, 'rect');
+    fin.setAttribute('x', fx - finW / 2); fin.setAttribute('y', bodyH / 2 - 1);
+    fin.setAttribute('width', finW); fin.setAttribute('height', finH);
+    fin.setAttribute('rx', '0.5');
+    fin.setAttribute('fill', '#4fd4e6'); fin.setAttribute('opacity', '0.85');
+    rruGroup.appendChild(fin);
   }
-  rruGroup.appendChild(finsGroup);
 
   svg.appendChild(rruGroup);
 
-  // Antenna sector cone (±45° half-beamwidth) — filled wedge, matches the right-side RRU diagram style.
+  // Sector indicator (dashed arc showing original sector ±45°) — YELLOW for antenna
   const secAng = state.params.sector;
-  const halfBeam = 45;
-  const coneR = R - 6;  // stay just inside the compass ring
-  const sa1 = (secAng - halfBeam - 90) * Math.PI / 180;
-  const sa2 = (secAng + halfBeam - 90) * Math.PI / 180;
-  const cx1 = cx + coneR * Math.cos(sa1), cy1 = cy + coneR * Math.sin(sa1);
-  const cx2 = cx + coneR * Math.cos(sa2), cy2 = cy + coneR * Math.sin(sa2);
-  const cone = document.createElementNS(NS, 'path');
-  cone.setAttribute('d', `M ${cx} ${cy} L ${cx1} ${cy1} A ${coneR} ${coneR} 0 0 1 ${cx2} ${cy2} Z`);
-  cone.setAttribute('fill', 'rgba(199,145,59,0.14)');
-  cone.setAttribute('stroke', 'rgba(199,145,59,0.55)');
-  cone.setAttribute('stroke-width', '1');
-  cone.setAttribute('stroke-dasharray', '3 3');
-  // Insert cone BEFORE the RRU group so the unit sits on top
-  svg.insertBefore(cone, rruGroup);
-
-  // (sector label removed per user request)
+  const sa1 = (secAng - 45 - 90) * Math.PI / 180;
+  const sa2 = (secAng + 45 - 90) * Math.PI / 180;
+  const arcR = R + 8;
+  const arcX1 = cx + arcR * Math.cos(sa1), arcY1 = cy + arcR * Math.sin(sa1);
+  const arcX2 = cx + arcR * Math.cos(sa2), arcY2 = cy + arcR * Math.sin(sa2);
+  const arc = document.createElementNS(NS, 'path');
+  arc.setAttribute('d', `M ${arcX1} ${arcY1} A ${arcR} ${arcR} 0 0 1 ${arcX2} ${arcY2}`);
+  arc.setAttribute('fill', 'none');
+  arc.setAttribute('stroke', '#f0b429');
+  arc.setAttribute('stroke-width', '2.5');
+  arc.setAttribute('stroke-dasharray', '4 3');
+  svg.appendChild(arc);
 
   // Legend below compass
   const compassWrap = svg.parentElement;
@@ -3017,8 +2326,9 @@ function renderCompass(a) {
   legendEl.className = 'compass-legend';
   legendEl.style.cssText = 'display:flex;gap:16px;justify-content:center;margin-top:6px;font-size:10px;color:var(--text-secondary);';
   legendEl.innerHTML = `
-    <span><span style="display:inline-block;width:14px;height:10px;background:rgba(199,145,59,0.18);border:1px dashed rgba(199,145,59,0.7);vertical-align:middle;margin-right:4px;"></span>${state.lang === 'zh' ? '天線掃面 ±45°' : 'Antenna beam ±45°'}</span>
-    <span><span style="display:inline-block;width:16px;height:3px;background:#5C7C8A;vertical-align:middle;margin-right:4px;"></span>${state.lang === 'zh' ? '主風來向' : 'Wind from'}</span>
+    <span><span style="display:inline-block;width:16px;height:2px;background:#f0b429;border-top:2px dashed #f0b429;vertical-align:middle;margin-right:4px;"></span>${state.lang === 'zh' ? '天線扇區 ±45°' : 'Antenna sector ±45°'}</span>
+    <span><span style="display:inline-block;width:16px;height:3px;background:#4fd4e6;vertical-align:middle;margin-right:4px;border-radius:1px;"></span>${state.lang === 'zh' ? '鰭片（散熱面）' : 'Fins (heat sink)'}</span>
+    <span><span style="display:inline-block;width:16px;height:3px;background:#94a1b8;vertical-align:middle;margin-right:4px;"></span>${state.lang === 'zh' ? '主風來向' : 'Wind from'}</span>
   `;
   compassWrap.appendChild(legendEl);
 }
@@ -3546,9 +2856,6 @@ function setMapMarker(lat, lon) {
 
 function updateCoordsBadge() {
   $('#coords-badge').textContent = `${state.location.lat.toFixed(4)}° · ${state.location.lon.toFixed(4)}°`;
-  // Mirror to status strip
-  const ssCoords = document.getElementById('ss-coords-val');
-  if (ssCoords) ssCoords.textContent = `${state.location.lat.toFixed(4)}, ${state.location.lon.toFixed(4)} · ${state.location.name || ''}`;
 }
 
 /* =============================================================
@@ -3783,121 +3090,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Auto-load Taipei preset on first visit for instant demo
   setTimeout(() => loadPreset('taipei'), 600);
 });
-</script>
-
-<!-- ===== Redesign supplementary: density toggle, tweaks panel, status strip ===== -->
-<script>
-(function(){
-  const body = document.body;
-
-  // ----- DENSITY TOGGLE -----
-  const densitySwitch = document.getElementById('density-switch');
-  if (densitySwitch) {
-    densitySwitch.querySelectorAll('button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        densitySwitch.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
-        body.dataset.density = btn.dataset.density;
-        // Trigger map resize if present
-        if (window.map && window.map.invalidateSize) setTimeout(()=>window.map.invalidateSize(),120);
-      });
-    });
-  }
-
-  // ----- STATUS STRIP UPDATES -----
-  // Watch for analysis state change via MutationObserver on the badge / period element
-  function setStatus(state, val){
-    const item = document.getElementById('ss-status');
-    const v = document.getElementById('ss-status-val');
-    if (!item || !v) return;
-    item.classList.remove('ok','warn','err');
-    if (state) item.classList.add(state);
-    v.textContent = val;
-  }
-  // Mirror summary period to status strip
-  const summaryPeriodEl = document.getElementById('summary-period');
-  if (summaryPeriodEl) {
-    new MutationObserver(() => {
-      const txt = summaryPeriodEl.textContent.trim();
-      const ssp = document.getElementById('ss-period-val');
-      if (ssp) ssp.textContent = (txt && txt !== '— · —') ? txt.replace(/\s*→\s*/, ' → ') : '— → —';
-      if (txt && txt !== '— · —') setStatus('ok', 'ANALYSIS COMPLETE');
-    }).observe(summaryPeriodEl, { childList:true, subtree:true, characterData:true });
-  }
-  // Watch loading overlay
-  const loading = document.getElementById('loading-overlay');
-  if (loading) {
-    new MutationObserver(() => {
-      if (loading.classList.contains('show')) {
-        const lbl = document.getElementById('loading-label');
-        setStatus('warn', (lbl && lbl.textContent ? lbl.textContent.toUpperCase() : 'LOADING…'));
-      }
-    }).observe(loading, { attributes:true, attributeFilter:['class'] });
-    new MutationObserver(() => {
-      const lbl = document.getElementById('loading-label');
-      if (loading.classList.contains('show') && lbl) {
-        setStatus('warn', lbl.textContent.toUpperCase());
-      }
-    }).observe(document.getElementById('loading-label'), { childList:true, characterData:true, subtree:true });
-  }
-
-  // ----- TWEAKS PANEL (host-driven) -----
-  const tweaksPanel = document.getElementById('tweaks-panel');
-  let tweaksActive = false;
-  function showTweaks(){ if(tweaksPanel){tweaksPanel.classList.add('show'); tweaksActive=true;} }
-  function hideTweaks(){ if(tweaksPanel){tweaksPanel.classList.remove('show'); tweaksActive=false;} }
-  window.addEventListener('message', (e)=>{
-    if (!e.data || typeof e.data !== 'object') return;
-    if (e.data.type === '__activate_edit_mode') showTweaks();
-    if (e.data.type === '__deactivate_edit_mode') hideTweaks();
-  });
-  // Announce availability AFTER listener is registered
-  try { window.parent.postMessage({type:'__edit_mode_available'},'*'); } catch(e){}
-  const closeX = document.getElementById('tw-close');
-  if (closeX) closeX.addEventListener('click', () => {
-    hideTweaks();
-    try { window.parent.postMessage({type:'__edit_mode_dismissed'},'*'); } catch(e){}
-  });
-
-  // Accent color swap
-  const accentRow = document.getElementById('tw-accent');
-  if (accentRow) {
-    accentRow.querySelectorAll('.tw-swatch').forEach(sw => {
-      sw.addEventListener('click', () => {
-        accentRow.querySelectorAll('.tw-swatch').forEach(s => s.classList.toggle('active', s === sw));
-        const c = sw.dataset.color;
-        // Compute derived colors via OKLCH-ish manipulation by mixing with bg
-        document.documentElement.style.setProperty('--signal', c);
-        // Build wash/line by appending alpha — convert hex → rgba
-        const hex = c.replace('#','');
-        const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
-        document.documentElement.style.setProperty('--signal-wash', `rgba(${r},${g},${b},0.10)`);
-        document.documentElement.style.setProperty('--signal-line', `rgba(${r},${g},${b},0.35)`);
-        document.documentElement.style.setProperty('--signal-dim', `rgba(${r},${g},${b},0.55)`);
-        // Re-render charts to pick up new color (if available)
-        if (window.tempChart && state.analysis) try { renderTempChart(state.analysis); } catch(e){}
-        if (state.analysis) {
-          try { renderWindRose(state.analysis); } catch(e){}
-          try { renderCompass(state.analysis); } catch(e){}
-          try { renderRRUDiagram(state.analysis); } catch(e){}
-        }
-      });
-    });
-  }
-
-  // Workspace grid toggle
-  document.querySelectorAll('[data-grid]').forEach(b => {
-    b.addEventListener('click', () => {
-      // Toggle visual active state
-      document.querySelectorAll('[data-grid]').forEach(o => o.classList.remove('btn-primary'));
-      b.classList.add('btn-primary');
-      // Apply via data attribute (CSS handles the rest)
-      body.dataset.grid = b.dataset.grid;
-    });
-  });
-
-  // ----- Initial status -----
-  setStatus(null, 'READY');
-})();
 </script>
 
 </body>
