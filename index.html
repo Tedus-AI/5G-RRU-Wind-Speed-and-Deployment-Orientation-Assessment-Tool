@@ -652,12 +652,41 @@ select {
   padding-top: 10px;
   border-top: 1px solid var(--rule);
 }
+#summary-grid .stat-foot,
+#summary-grid-row2 .stat-foot { display: none; }
+#summary-grid .stat-foot.open,
+#summary-grid-row2 .stat-foot.open { display: block; }
+.stat-info-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1.5px solid var(--ink-3); background: transparent;
+  color: var(--ink-3); font-size: 11px; font-weight: 700;
+  cursor: pointer; margin-left: 6px; padding: 0;
+  vertical-align: middle; line-height: 1; transition: all .15s;
+  font-family: serif; flex-shrink: 0;
+}
+.stat-info-btn:hover { border-color: var(--signal); color: var(--signal); }
+.stat-info-btn.active { background: var(--signal); color: var(--bg); border-color: var(--signal); }
 .stat-accent .stat-value { color: var(--signal); }
 .stat-warn   .stat-value { color: var(--warn); }
 .stat-error  .stat-value { color: var(--hot); }
 /* Equal heights */
 .grid-6 .stat, .grid-3 .stat, .grid-2 .stat { display: flex; flex-direction: column; }
-.grid-6 .stat .stat-foot, .grid-3 .stat .stat-foot { margin-top: auto; }
+.stat-label-row { display: flex; align-items: center; justify-content: space-between; }
+/* Collapsible calculation flow */
+.calc-flow-toggle {
+  display: flex; align-items: center; gap: 6px;
+  cursor: pointer; user-select: none; margin-top: 14px;
+  font-size: 13px; color: var(--ink-2); font-weight: 600;
+}
+.calc-flow-toggle:hover { color: var(--signal); }
+.calc-flow-toggle .chevron {
+  display: inline-block; transition: transform .2s;
+  font-size: 11px;
+}
+.calc-flow-toggle.open .chevron { transform: rotate(90deg); }
+.calc-flow-body { display: none; margin-top: 6px; }
+.calc-flow-body.open { display: block; }
 
 /* Quick rail KPI — compact stat for sidebar */
 .rail-kpi-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -2402,38 +2431,32 @@ function renderSummaryCards(a) {
   const zh = state.lang === 'zh';
   const yrs = ts.yearsCovered.toFixed(1);
   const sampleN = ts.count;
-  grid.innerHTML = `
-    <div class="stat">
-      <div class="stat-label">${zh ? '年均溫' : 'Annual Mean'}</div>
-      <div class="stat-value num">${fmt(ts.mean)}<span class="unit">°C</span></div>
-      <div class="stat-foot">${zh ? `近 5 年逐時平均 · n=${sampleN.toLocaleString()}` : `5-yr hourly mean · n=${sampleN.toLocaleString()}`}<br>P50: ${fmt(ts.p50)}°C</div>
-    </div>
-    <div class="stat stat-accent">
-      <div class="stat-label">${zh ? 'P95 溫度' : 'P95 Temp'}</div>
-      <div class="stat-value num">${fmt(ts.p95)}<span class="unit">°C</span></div>
-      <div class="stat-foot">${zh ? `近 5 年中 5% 的小時超過此值<br>（= ${Math.round(sampleN * 0.05).toLocaleString()} 小時）` : `5 % of the 5-yr hours exceed this<br>(≈ ${Math.round(sampleN * 0.05).toLocaleString()} hours)`}</div>
-    </div>
-    <div class="stat ${ts.max > 50 ? 'stat-warn' : ''}">
-      <div class="stat-label">${zh ? '歷史極端' : 'Historical Max'}</div>
-      <div class="stat-value num">${fmt(ts.max)}<span class="unit">°C</span></div>
-      <div class="stat-foot">${zh ? `近 5 年逐時最大值<br>vs 設計基準 55°C（餘裕 ${(55 - ts.max).toFixed(1)}°C）` : `5-yr hourly max<br>vs 55°C design (margin ${(55 - ts.max).toFixed(1)}°C)`}</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">${zh ? '10 m 平均風速' : 'Mean Wind @10 m'}</div>
-      <div class="stat-value num">${fmt(a.v10mean)}<span class="unit">m/s</span></div>
-      <div class="stat-foot" title="${zh ? '風速 < 0.5 m/s 視為靜風並排除，避免拉低有效風速平均' : 'Wind speeds below 0.5 m/s are treated as calm and excluded'}">${zh ? `近 5 年逐時算術平均<br>排除靜風 (<0.5 m/s)` : `5-yr hourly arithmetic mean<br>excl. calm (<0.5 m/s)`}</div>
-    </div>
-    <div class="stat stat-accent">
-      <div class="stat-label">${zh ? '修正風速' : 'Corrected Wind'} @${state.params.height}m</div>
-      <div class="stat-value num">${fmt(a.vh)}<span class="unit">m/s</span></div>
-      <div class="stat-foot mono">V<sub>h</sub> = ${fmt(a.v10mean)} × (${state.params.height}/10)<sup>${state.params.alpha}</sup> × ${state.params.shielding}</div>
-    </div>
-    <div class="stat ${ts.hoursAbove[55] > 0 ? 'stat-error' : 'stat-accent'}">
-      <div class="stat-label">${zh ? '> 55°C 時數（年均）' : 'Hours/yr > 55°C'}</div>
-      <div class="stat-value num">${(ts.hoursAbove[55] / ts.yearsCovered).toFixed(0)}</div>
-      <div class="stat-foot">${zh ? `5 年總計 ${ts.hoursAbove[55]} h ÷ ${yrs} 年` : `5-yr total ${ts.hoursAbove[55]} h ÷ ${yrs} yr`}<br>> 50°C: ${(ts.hoursAbove[50] / ts.yearsCovered).toFixed(0)} h/yr</div>
-    </div>
-  `;
+  // Helper: build a stat card with collapsible footnote
+  const statCard = (cls, label, value, foot) =>
+    `<div class="stat${cls ? ' ' + cls : ''}">
+      <div class="stat-label-row"><div class="stat-label">${label}</div><button class="stat-info-btn" aria-label="info" onclick="this.classList.toggle('active');this.closest('.stat').querySelector('.stat-foot').classList.toggle('open')">i</button></div>
+      <div class="stat-value num">${value}</div>
+      <div class="stat-foot">${foot}</div>
+    </div>`;
+  grid.innerHTML =
+    statCard('', zh ? '年均溫' : 'Annual Mean',
+      `${fmt(ts.mean)}<span class="unit">°C</span>`,
+      `${zh ? `近 5 年逐時平均 · n=${sampleN.toLocaleString()}` : `5-yr hourly mean · n=${sampleN.toLocaleString()}`}<br>P50: ${fmt(ts.p50)}°C`)
+    + statCard('stat-accent', zh ? 'P95 溫度' : 'P95 Temp',
+      `${fmt(ts.p95)}<span class="unit">°C</span>`,
+      `${zh ? `近 5 年中 5% 的小時超過此值<br>（= ${Math.round(sampleN * 0.05).toLocaleString()} 小時）` : `5 % of the 5-yr hours exceed this<br>(≈ ${Math.round(sampleN * 0.05).toLocaleString()} hours)`}`)
+    + statCard(ts.max > 50 ? 'stat-warn' : '', zh ? '歷史極端' : 'Historical Max',
+      `${fmt(ts.max)}<span class="unit">°C</span>`,
+      `${zh ? `近 5 年逐時最大值<br>vs 設計基準 55°C（餘裕 ${(55 - ts.max).toFixed(1)}°C）` : `5-yr hourly max<br>vs 55°C design (margin ${(55 - ts.max).toFixed(1)}°C)`}`)
+    + statCard('', zh ? '10 m 平均風速' : 'Mean Wind @10 m',
+      `${fmt(a.v10mean)}<span class="unit">m/s</span>`,
+      `${zh ? `近 5 年逐時算術平均<br>排除靜風 (<0.5 m/s)` : `5-yr hourly arithmetic mean<br>excl. calm (<0.5 m/s)`}`)
+    + statCard('stat-accent', `${zh ? '修正風速' : 'Corrected Wind'} @${state.params.height}m`,
+      `${fmt(a.vh)}<span class="unit">m/s</span>`,
+      `<span class="mono">V<sub>h</sub> = ${fmt(a.v10mean)} × (${state.params.height}/10)<sup>${state.params.alpha}</sup> × ${state.params.shielding}</span>`)
+    + statCard(ts.hoursAbove[55] > 0 ? 'stat-error' : 'stat-accent', zh ? '> 55°C 時數（年均）' : 'Hours/yr > 55°C',
+      `${(ts.hoursAbove[55] / ts.yearsCovered).toFixed(0)}`,
+      `${zh ? `5 年總計 ${ts.hoursAbove[55]} h ÷ ${yrs} 年` : `5-yr total ${ts.hoursAbove[55]} h ÷ ${yrs} yr`}<br>> 50°C: ${(ts.hoursAbove[50] / ts.yearsCovered).toFixed(0)} h/yr`);
   // Sol-air & high-temp wind row
   const sa = a.solAirStats;
   const hsa = a.hotSolAirStats;
@@ -2457,64 +2480,49 @@ function renderSummaryCards(a) {
     : a.hotMonths.map(m => MONTH_EN[m]).join(' · ');
   // Hot-season V10 (before Power Law)
   const hotV10 = a.hotRose.meanSpeed;
-  row2.innerHTML = `
-    <div class="stat stat-accent">
-      <div class="stat-label">${zh ? '熱季 Sol-air P95 ★' : 'Hot-season Sol-air P95 ★'}</div>
-      <div class="stat-value num">${fmt(hsa.p95)}<span class="unit">°C</span></div>
-      <div class="stat-foot">${zh
+  row2.innerHTML =
+    statCard('stat-accent', zh ? '熱季 Sol-air P95 ★' : 'Hot-season Sol-air P95 ★',
+      `${fmt(hsa.p95)}<span class="unit">°C</span>`,
+      `${zh
         ? `最熱 3 個月（<b>${hotMonthLabel}</b>）含日射<br>α<sub>s</sub> = ${absLabel}，散熱設計建議參考值<br>vs 氣溫 P95 ${fmt(a.hotTempStats.p95)}°C (+${(hsa.p95 - a.hotTempStats.p95).toFixed(1)}°C)<br>Sol-air 極端: ${fmt(sa.max)}°C`
-        : `Hottest 3 months (<b>${hotMonthLabel}</b>) incl. solar<br>α<sub>s</sub> = ${absLabel}, recommended design ref.<br>vs air P95 ${fmt(a.hotTempStats.p95)}°C (+${(hsa.p95 - a.hotTempStats.p95).toFixed(1)}°C)<br>Sol-air max: ${fmt(sa.max)}°C`}</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">${zh ? '熱季氣溫 P95' : 'Hot-season Air P95'}</div>
-      <div class="stat-value num">${fmt(a.hotTempStats.p95)}<span class="unit">°C</span></div>
-      <div class="stat-foot">${zh
+        : `Hottest 3 months (<b>${hotMonthLabel}</b>) incl. solar<br>α<sub>s</sub> = ${absLabel}, recommended design ref.<br>vs air P95 ${fmt(a.hotTempStats.p95)}°C (+${(hsa.p95 - a.hotTempStats.p95).toFixed(1)}°C)<br>Sol-air max: ${fmt(sa.max)}°C`}`)
+    + statCard('', zh ? '熱季氣溫 P95' : 'Hot-season Air P95',
+      `${fmt(a.hotTempStats.p95)}<span class="unit">°C</span>`,
+      `${zh
         ? `最熱 3 個月（<b>${hotMonthLabel}</b>）<br>不含日射的純氣溫 P95<br>與左方 Sol-air P95 對比可看出日射加熱效應`
-        : `Hottest 3 months (<b>${hotMonthLabel}</b>)<br>Air-only P95 (no solar)<br>Compare with Sol-air P95 to see solar heating effect`}</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">${zh ? '熱季平均風速' : 'Hot-season Mean Wind'}</div>
-      <div class="stat-value num">${fmt(hotV10)}<span class="unit">m/s</span></div>
-      <div class="stat-foot">${zh
+        : `Hottest 3 months (<b>${hotMonthLabel}</b>)<br>Air-only P95 (no solar)<br>Compare with Sol-air P95 to see solar heating effect`}`)
+    + statCard('', zh ? '熱季平均風速' : 'Hot-season Mean Wind',
+      `${fmt(hotV10)}<span class="unit">m/s</span>`,
+      `${zh
         ? `最熱 3 個月（<b>${hotMonthLabel}</b>）<br>排除靜風 @10m<br>@${state.params.height}m: ${fmt(a.vh_hot)} m/s`
-        : `Hottest 3 months (<b>${hotMonthLabel}</b>)<br>Excl. calm @10m<br>@${state.params.height}m: ${fmt(a.vh_hot)} m/s`}</div>
-    </div>
-    <div class="stat stat-warn">
-      <div class="stat-label">${zh ? '高溫時段 P10 風速' : 'High-temp P10 Wind'}</div>
-      <div class="stat-value num">${fmt(htw.p10)}<span class="unit">m/s</span></div>
-      <div class="stat-foot">${zh
+        : `Hottest 3 months (<b>${hotMonthLabel}</b>)<br>Excl. calm @10m<br>@${state.params.height}m: ${fmt(a.vh_hot)} m/s`}`)
+    + statCard('stat-warn', zh ? '高溫時段 P10 風速' : 'High-temp P10 Wind',
+      `${fmt(htw.p10)}<span class="unit">m/s</span>`,
+      `${zh
         ? `氣溫 ≥ P90 (${fmt(a.tStats.p90)}°C) 時段風速<br>第 10 百分位 = 保守設計值<br>@${state.params.height}m: ${fmt(htwP10h)} m/s`
-        : `Wind speed when T ≥ P90 (${fmt(a.tStats.p90)}°C)<br>10th percentile = conservative<br>@${state.params.height}m: ${fmt(htwP10h)} m/s`}</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">${zh ? '高溫時段中位風速' : 'High-temp Median Wind'}</div>
-      <div class="stat-value num">${fmt(htw.median)}<span class="unit">m/s</span></div>
-      <div class="stat-foot">${zh
+        : `Wind speed when T ≥ P90 (${fmt(a.tStats.p90)}°C)<br>10th percentile = conservative<br>@${state.params.height}m: ${fmt(htwP10h)} m/s`}`)
+    + statCard('', zh ? '高溫時段中位風速' : 'High-temp Median Wind',
+      `${fmt(htw.median)}<span class="unit">m/s</span>`,
+      `${zh
         ? `氣溫 ≥ P90 時段風速中位數<br>典型設計值<br>@${state.params.height}m: ${fmt(htwMedianH)} m/s`
-        : `Median wind when T ≥ P90<br>Typical design value<br>@${state.params.height}m: ${fmt(htwMedianH)} m/s`}</div>
-    </div>
-    <div class="stat ${htw.calmFrac > 0.3 ? 'stat-warn' : ''}">
-      <div class="stat-label">${zh ? '高溫時段靜風率' : 'High-temp Calm %'}</div>
-      <div class="stat-value num">${(htw.calmFrac * 100).toFixed(0)}<span class="unit">%</span></div>
-      <div class="stat-foot">${zh
+        : `Median wind when T ≥ P90<br>Typical design value<br>@${state.params.height}m: ${fmt(htwMedianH)} m/s`}`)
+    + statCard(htw.calmFrac > 0.3 ? 'stat-warn' : '', zh ? '高溫時段靜風率' : 'High-temp Calm %',
+      `${(htw.calmFrac * 100).toFixed(0)}<span class="unit">%</span>`,
+      `${zh
         ? `氣溫 ≥ P90 且風速 < 0.5 m/s<br>共 ${htw.count.toLocaleString()} 小時分析<br>${htw.calmFrac > 0.3 ? '⚠ 高溫低風速頻繁，自然對流為主' : '強制對流可利用'}<br><span style="font-size:11px;opacity:0.6;">門檻說明：靜風率 ≥ 30% 表示高溫時段有近 1/3 時間無有效風速，強制對流不可靠，應以純自然對流為設計基準；< 30% 則多數高溫時段仍有風，可納入強制對流設計。</span>`
-        : `T ≥ P90 with wind < 0.5 m/s<br>${htw.count.toLocaleString()} hours analyzed<br>${htw.calmFrac > 0.3 ? '⚠ Frequent high-temp calm — natural conv. dominant' : 'Forced convection viable'}<br><span style="font-size:11px;opacity:0.6;">Threshold: calm ≥ 30% means ~1/3 of high-temp hours lack effective wind — forced convection unreliable, design for natural convection; < 30% means wind is available most of the time.</span>`}</div>
-    </div>
-  `;
-  // Calculation flow caption below the grids
-  let capt = $('#summary-caption');
-  if (!capt) {
-    capt = document.createElement('p');
-    capt.id = 'summary-caption';
-    capt.className = 'help';
-    capt.style.marginTop = '14px';
-    // Insert after row2
-    row2.parentNode.insertBefore(capt, row2.nextSibling);
+        : `T ≥ P90 with wind < 0.5 m/s<br>${htw.count.toLocaleString()} hours analyzed<br>${htw.calmFrac > 0.3 ? '⚠ Frequent high-temp calm — natural conv. dominant' : 'Forced convection viable'}<br><span style="font-size:11px;opacity:0.6;">Threshold: calm ≥ 30% means ~1/3 of high-temp hours lack effective wind — forced convection unreliable, design for natural convection; < 30% means wind is available most of the time.</span>`}`);
+  // Calculation flow caption below the grids — collapsible
+  let captWrap = $('#summary-caption-wrap');
+  if (!captWrap) {
+    captWrap = document.createElement('div');
+    captWrap.id = 'summary-caption-wrap';
+    row2.parentNode.insertBefore(captWrap, row2.nextSibling);
   }
   const captStyle = 'style="margin:3px 0 0 18px;line-height:1.9;"';
+  const toggleLabel = zh ? '計算流程' : 'Calculation flow';
+  let olContent;
   if (zh) {
-    capt.innerHTML = `<strong>計算流程：</strong>
-    <ol ${captStyle}>
+    olContent = `<ol ${captStyle}>
       <li><b>氣候資料取得</b>：透過 Open-Meteo Historical API 抓取近 ${yrs} 年（${a.period.start} → ${a.period.end}）逐時資料，共約 ${sampleN.toLocaleString()} 筆。</li>
       <li><b>氣溫統計</b>：統計 2 m 氣溫（離地 2 m 高度，氣象標準觀測高度，ERA5 變數 <code>temperature_2m</code>）的平均、P50、P95、最高值與超過 50/55°C 的時數。</li>
       <li><b>風速統計</b>：將 10 m 風速過濾靜風（&lt; 0.5 m/s）後取算術平均，得到 V<sub>10</sub>。</li>
@@ -2531,8 +2539,7 @@ function renderSummaryCards(a) {
       <li><b>高溫時段風速（concurrent wind）</b>：篩選氣溫 ≥ P90（${fmt(a.tStats.p90)}°C）的所有小時，統計同時段風速的 P10（保守值）、中位數（典型值）及靜風率（&lt; 0.5 m/s 佔比），用以評估「高溫＋低風速」同時出現的 worst-case。</li>
     </ol>`;
   } else {
-    capt.innerHTML = `<strong>Calculation flow:</strong>
-    <ol ${captStyle}>
+    olContent = `<ol ${captStyle}>
       <li><b>Climate data</b>: Fetch ${yrs} years of hourly data (${a.period.start} → ${a.period.end}) from Open-Meteo Historical API, ~${sampleN.toLocaleString()} records.</li>
       <li><b>Temperature statistics</b>: Compute mean, P50, P95, max of 2 m air temperature (<code>temperature_2m</code>, standard meteorological height) and hours above 50/55°C.</li>
       <li><b>Wind statistics</b>: Filter 10 m winds below 0.5 m/s (calm), compute arithmetic mean V<sub>10</sub>.</li>
@@ -2549,6 +2556,7 @@ function renderSummaryCards(a) {
       <li><b>High-temp concurrent wind</b>: Filter hours where T ≥ P90 (${fmt(a.tStats.p90)}°C), compute concurrent wind P10 (conservative), median (typical), and calm fraction (&lt; 0.5 m/s), to assess worst-case "high temp + low wind" joint probability.</li>
     </ol>`;
   }
+  captWrap.innerHTML = `<div class="calc-flow-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')"><span class="chevron">&#9654;</span> ${toggleLabel}</div><div class="calc-flow-body help">${olContent}</div>`;
   $('#summary-period').textContent = `${a.period.start} → ${a.period.end}`;
 }
 
