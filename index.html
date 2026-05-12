@@ -1347,7 +1347,7 @@ footer.app-foot div + div { margin-top: 8px; color: var(--ink-2); }
             <button data-mode="FR1">FR1 Sub-6</button>
             <button data-mode="FR2" class="active">FR2 mmWave</button>
           </div>
-          <p class="field-help" id="band-mode-help" data-i18n="params.bandMode.help">FR2 天線整合於機體，朝向受扇區約束 ±45°；FR1 天線外接，機體可自由旋轉</p>
+          <p class="field-help" id="band-mode-help" data-i18n="params.bandMode.help">FR2 天線整合於機體，方位由 RF 規劃固定；FR1 天線外接，機體可自由旋轉最佳化散熱</p>
         </div>
 
         <div id="sector-group">
@@ -1561,7 +1561,7 @@ footer.app-foot div + div { margin-top: 8px; color: var(--ink-2); }
           </table>
           <p><strong>主導風向判定：</strong>自動從 5 年逐時資料中找出月均溫最高的 3 個月作為「最熱季」，再取日間 10:00–18:00 的逐時風資料，把 360° 切成 16 個方位（每格 22.5°），計算頻率分佈後取頻率最高者為主風向。自動偵測最熱月份可適應不同緯度與氣候區，無需假設固定月份。之所以只取熱季日間，是因為白天有太陽輻射加熱、氣溫最高，是散熱最緊迫的時段；夜間風向模式可能因海陸風或山谷風反轉，不應用於鰭片方向最佳化。</p>
           <p><strong>鰭片方向建議規則：</strong>鰭片走向設定為平行於主導風向，讓氣流可順暢通過鰭片通道並形成強制對流。若主導風向頻率低於 30%（代表風向太分散），系統會降級為「以自然對流為主」並標示警告，不建議依賴風向帶來的散熱增益。</p>
-          <p><strong>扇區約束：</strong>天線扇區指向通常由訊號涵蓋需求決定、不能任意轉動，所以實際上機體面向只能在天線扇區方向 ±45° 的範圍內微調。系統會在這個約束下，找出最接近主風向的合法方向。</p>
+          <p><strong>FR1 / FR2 差異：</strong>FR1（Sub-6 GHz）天線外接，RRU 機體與天線各自獨立，機體可自由旋轉 360° 進行散熱方向最佳化。FR2 / AAS（mmWave）天線整合於機體，方位完全由 RF 規劃決定、不可旋轉，工具改為診斷模式：分析該固定方位下的散熱條件並提出補救建議。</p>
           <p><strong>使用限制與注意事項：</strong>本工具定位為 <em>佈建前的初步環境評估</em>，不是 CFD 模擬的替代品。最終散熱規格仍需以 FloTHERM、Icepak 等 CFD 軟體驗證關鍵 worst-case。Open-Meteo 屬再分析資料，實際微氣候會因附近建物、植被遮蔽、海陸風、都市熱島等效應而與資料有差異；山區、都市峽谷、近海岸等複雜地形建議搭配在地氣象站實測資料交叉驗證。</p>
         </div>
         <div class="detail-body meth-en">
@@ -1575,7 +1575,7 @@ footer.app-foot div + div { margin-top: 8px; color: var(--ink-2); }
           </table>
           <p><strong>Prevailing wind detection:</strong> Automatically identifies the 3 months with the highest mean temperature from 5 years of hourly data as the "hot season" — no fixed month assumption, adapts to any latitude and climate zone. Uses daytime (10:00–18:00) hourly wind data from these months. Directions are binned into 16 sectors (22.5° each); the highest-frequency bin is selected as the prevailing direction. Restricting to hot-season daytime isolates the window where cooling is most critical — solar heating peaks during these hours and nighttime wind patterns (sea-land breeze, mountain-valley reversal) should not influence fin orientation.</p>
           <p><strong>Fin orientation rule:</strong> Fins are aligned parallel to the prevailing wind so airflow passes cleanly through the fin channels (forced convection). If the prevailing direction frequency is below 30% (wind too scattered), the rule degrades to "natural convection dominant" and a warning is shown — forced-convection gains cannot be reliably exploited.</p>
-          <p><strong>Sector constraint:</strong> Antenna sector orientation is dictated by signal coverage and cannot be freely rotated, so the physical unit can only be turned within ±45° of the antenna bearing. The system finds the best allowed orientation within that window.</p>
+          <p><strong>FR1 / FR2 difference:</strong> FR1 (Sub-6 GHz) uses an external antenna; the RRU body is independent and can rotate freely 360° for thermal orientation optimisation. FR2 / AAS (mmWave) has the antenna integrated into the body; orientation is fully determined by RF planning and cannot be rotated. In FR2 mode, the tool operates as a diagnostic: it analyses thermal conditions at the fixed orientation and suggests mitigation if unfavourable.</p>
           <p><strong>Caveats:</strong> This tool is a <em>pre-deployment site assessment</em>, not a CFD replacement. Final thermal design must still be validated with FloTHERM / Icepak against worst-case scenarios. Open-Meteo is reanalysis data; real microclimates can diverge due to buildings, vegetation, sea-land breeze, urban heat island, etc. For complex terrain (mountains, urban canyons, coastal sites), cross-validate with local weather station data.</p>
         </div>
       </details>
@@ -1705,7 +1705,7 @@ const I18N = {
     'abs.lgray': '淺灰色 (0.50)',
     'abs.dgray': '深灰色 (0.75)',
     'params.bandMode': '頻段模式',
-    'params.bandMode.help': 'FR2 天線整合於機體，朝向受扇區約束 ±45°；FR1 天線外接，機體可自由旋轉',
+    'params.bandMode.help': 'FR2 天線整合於機體，方位由 RF 規劃固定；FR1 天線外接，機體可自由旋轉最佳化散熱',
     'params.sector': '天線扇區方位 (°)',
     'params.sector.help': '天線扇區指向 (0=北 / 90=東 / 180=南 / 270=西)。鰭片方向會以此為約束',
     'params.run': '執行站點分析',
@@ -1769,7 +1769,7 @@ const I18N = {
     'abs.lgray': 'Light gray (0.50)',
     'abs.dgray': 'Dark gray (0.75)',
     'params.bandMode': 'Band Mode',
-    'params.bandMode.help': 'FR2: integrated antenna, orientation constrained ±45° by sector. FR1: external antenna, unit body freely orientable.',
+    'params.bandMode.help': 'FR2: integrated antenna, orientation fixed by RF planning. FR1: external antenna, unit body freely orientable for thermal optimisation.',
     'params.sector': 'Antenna Sector Azimuth (°)',
     'params.sector.help': 'Antenna sector direction (0=N / 90=E / 180=S / 270=W). Constrains fin orientation.',
     'params.run': 'Run Site Analysis',
@@ -2407,23 +2407,21 @@ function runAnalysis() {
   };
 }
 
-/* TODO [Future] 約束損失指標 (Constraint Penalty)
-   同時顯示 FR2 約束內最佳方位 vs FR1 全向最佳方位的風速差異百分比，
-   幫助使用者量化「扇區約束犧牲了多少散熱能力」。 */
+/* TODO [Future] FR2 散熱損失指標 (Thermal Penalty Diagnostic)
+   顯示 FR2 RF 固定方位 vs FR1 全向最佳方位的散熱條件差異百分比，
+   幫助使用者量化「RF 固定方位犧牲了多少散熱能力」。 */
 function computeRecommendations(rose, sectorAz) {
   const prevailingDeg = rose.prevailingDeg;
   const prevailingFreq = rose.prevailingFreq;
   const prevailingLabel = state.lang === 'zh' ? DIR_LABELS_16_ZH[rose.prevailingIdx] : DIR_LABELS_16[rose.prevailingIdx];
 
   // Fin orientation: parallel to prevailing wind = same direction (so wind flows along fin channels)
-  // Find the best machine rotation within ±45° of sectorAz that aligns face-into-wind
-  // Wind comes FROM prevailingDeg, so the unit should face TOWARDS prevailingDeg (180° opposite of wind origin)
-  // Actually for a vertical RRU with vertical fins, we want fins parallel to wind flow direction
-  // Wind flow direction = prevailingDeg + 180 (wind comes FROM, flows TO)
+  // FR1: free 360° rotation → find azimuth that best faces fins into wind.
+  // FR2: orientation fixed by RF planning → diagnose thermal conditions at that azimuth.
+  // Wind comes FROM prevailingDeg, flows TO (prevailingDeg + 180) % 360.
   const windFlowDeg = (prevailingDeg + 180) % 360;
-  const finAxis = windFlowDeg; // fins should be parallel to this axis
+  const finAxis = windFlowDeg; // ideal: fins parallel to wind flow
 
-  // Sector constraint: machine can rotate ±45° from sectorAz
   // PRIMARY metric: minimize angle between FIN FACE and WIND ORIGIN (fins should face the wind).
   //   Fins face (az+180)%360; wind comes FROM prevailingDeg.
   //   Smaller angle = fins more windward = better forced convection on fin surface.
@@ -2458,16 +2456,12 @@ function computeRecommendations(rose, sectorAz) {
     bestOffset = 0;
     var recommendedAz = bestAz;
   } else {
-    // FR2: integrated antenna — constrained ±45° from sectorAz
-    for (let off = -45; off <= 45; off += 1) {
-      const a = (sectorAz + off + 360) % 360;
-      const ww = finWindwardAngle(a);
-      const ch = finChannelAlignment(a);
-      if (ww < bestWindward || (ww === bestWindward && ch < bestChannel)) {
-        bestWindward = ww; bestChannel = ch; bestOffset = off;
-      }
-    }
-    var recommendedAz = (sectorAz + bestOffset + 360) % 360;
+    // FR2 / AAS: integrated antenna — orientation is FIXED by RF planning.
+    // No rotation optimisation; sectorAz IS the unit azimuth.
+    bestOffset = 0;
+    var recommendedAz = sectorAz;
+    bestWindward = finWindwardAngle(sectorAz);
+    bestChannel = finChannelAlignment(sectorAz);
   }
   const bestDiff = bestWindward;
   // Quality: 0°=100% (fins face wind), 90°=0% (fins perpendicular), >90°=0% (leeward)
@@ -3139,7 +3133,7 @@ function renderCompass(a) {
     `;
   } else {
     legendEl.innerHTML = `
-      <span><span style="display:inline-block;width:14px;height:10px;background:rgba(199,145,59,0.18);border:1px dashed rgba(199,145,59,0.7);vertical-align:middle;margin-right:4px;"></span>${state.lang === 'zh' ? '天線掃面 ±45°' : 'Antenna beam ±45°'}</span>
+      <span><span style="display:inline-block;width:14px;height:10px;background:rgba(199,145,59,0.18);border:1px dashed rgba(199,145,59,0.7);vertical-align:middle;margin-right:4px;"></span>${state.lang === 'zh' ? '天線扇區（RF 固定）' : 'Antenna sector (RF-fixed)'}</span>
       <span><span style="display:inline-block;width:16px;height:3px;background:#5C7C8A;vertical-align:middle;margin-right:4px;"></span>${state.lang === 'zh' ? '主風來向' : 'Wind from'}</span>
     `;
   }
@@ -3169,7 +3163,9 @@ function renderRecList(a) {
     <li>
       <div class="rec-icon">②</div>
       <div class="rec-body">
-        <div class="rec-label">${state.lang === 'zh' ? '建議鰭片面向方位' : 'Recommended Fin Facing Direction'}</div>
+        <div class="rec-label">${r.isFR1
+          ? (state.lang === 'zh' ? '建議鰭片面向方位' : 'Recommended Fin Facing Direction')
+          : (state.lang === 'zh' ? '鰭片面向方位（RF 固定）' : 'Fin Facing Direction (RF-fixed)')}</div>
         <div class="rec-value">${(() => {
           const finFace = (r.recommendedAz + 180) % 360;
           const finFaceLabel = state.lang === 'zh' ? DIR_LABELS_16_ZH[Math.round(finFace / 22.5) % 16] : DIR_LABELS_16[Math.round(finFace / 22.5) % 16];
@@ -3187,11 +3183,13 @@ function renderRecList(a) {
             }
           } else {
             if (state.lang === 'zh') {
-              return `鰭片位於天線正後方。天線面向 ${r.recommendedAz.toFixed(0)}°，故鰭片面向 ${finFace.toFixed(0)}°。<br>` +
-                `此方位已考慮天線扇區約束（${state.params.sector}° ±45°）與主導風向（${r.prevailingLabel} ${r.prevailingDeg.toFixed(0)}°），在允許範圍內選出鰭片最能迎風的朝向。`;
+              return `FR2 / AAS 模式：天線整合於機體，方位由 RF 規劃決定，無散熱旋轉餘地。<br>` +
+                `天線面向 ${r.recommendedAz.toFixed(0)}°（= 扇區方位），鰭片固定面向 ${finFace.toFixed(0)}°。<br>` +
+                `以下為此固定方位的散熱條件診斷。`;
             } else {
-              return `Fins are on the back of the unit. Antenna faces ${r.recommendedAz.toFixed(0)}°, so fins face ${finFace.toFixed(0)}°.<br>` +
-                `This orientation accounts for both sector constraint (${state.params.sector}° ±45°) and prevailing wind (${r.prevailingLabel} ${r.prevailingDeg.toFixed(0)}°), choosing the best fin-to-wind alignment within the allowed range.`;
+              return `FR2 / AAS mode: antenna integrated in unit body, orientation fixed by RF planning — no thermal rotation possible.<br>` +
+                `Antenna faces ${r.recommendedAz.toFixed(0)}° (= sector azimuth), fins fixed at ${finFace.toFixed(0)}°.<br>` +
+                `The following is a thermal condition assessment at this fixed orientation.`;
             }
           }
         })()}</div>
@@ -3224,14 +3222,16 @@ function renderRecList(a) {
               (isWindward
                 ? `<span style="color:var(--success);">✓ 鰭片處於<b>迎風面</b>（風直接吹向鰭片表面，強制對流效率最佳）。</span>`
                 : `<span style="color:var(--warn);">△ 鰭片處於<b>背風面</b>（風從天線側吹來，需繞過機體才到鰭片，強制對流效率降低）。</span>`) +
-              `<br>鰭片通道與風軸對齊度 ${(r.alignmentQuality*100).toFixed(0)}%（夾角 ${r.bestDiff.toFixed(0)}°）`;
+              (!isWindward && !r.isFR1 ? `<br><span style="font-size:11px;color:var(--ink-3);">⚙ FR2 方位由 RF 鎖定無法旋轉，建議考慮：加裝導流罩引導氣流至鰭片側、提高安裝高度增加風速、或採用更高效的 TIM / 散熱方案補償。</span>` : '') +
+              `<br>鰭片迎風對齊度 ${(r.alignmentQuality*100).toFixed(0)}%（夾角 ${r.bestDiff.toFixed(0)}°）`;
           } else {
             return `Antenna faces ${r.recommendedAz.toFixed(0)}°, fins face ${finFaceDeg.toFixed(0)}°, wind from ${r.prevailingLabel} (${r.prevailingDeg.toFixed(0)}°).<br>` +
               `Angle between fin face and wind origin = ${finToWindOrigin.toFixed(0)}°.<br>` +
               (isWindward
                 ? `<span style="color:var(--success);">✓ Fins are <b>windward</b> (wind blows directly onto fin surface, best forced convection).</span>`
                 : `<span style="color:var(--warn);">△ Fins are <b>leeward</b> (wind comes from antenna side, must travel around unit to reach fins).</span>`) +
-              `<br>Fin channel alignment ${(r.alignmentQuality*100).toFixed(0)}% (${r.bestDiff.toFixed(0)}° off wind axis)`;
+              (!isWindward && !r.isFR1 ? `<br><span style="font-size:11px;color:var(--ink-3);">⚙ FR2 orientation is RF-locked. Consider: adding a wind deflector to guide airflow to fins, raising installation height to increase wind speed, or using higher-performance TIM / cooling solutions.</span>` : '') +
+              `<br>Fin windward alignment ${(r.alignmentQuality*100).toFixed(0)}% (${r.bestDiff.toFixed(0)}° off wind)`;
           }
         })()}</div>
       </div>
@@ -3274,7 +3274,7 @@ function renderRecList(a) {
     </li>
   `;
   // Alignment quality badge: measures how well the unit azimuth can align with the
-  // prevailing wind axis. FR2: constrained ±45° from sector; FR1: free 360° → always ~100%.
+  // prevailing wind axis. FR2: fixed by RF planning (diagnostic); FR1: free 360° → always ~100%.
   const q = r.alignmentQuality;
   const badge = $('#rec-badge');
   let label, color;
@@ -3298,46 +3298,56 @@ function renderRecList(a) {
       padding:14px 16px;min-width:320px;max-width:400px;font-size:12px;line-height:1.7;
       color:var(--ink-1);box-shadow:0 4px 24px rgba(70,55,30,0.18);`;
     const tooltipContent = state.lang === 'zh'
-      ? `<div style="font-weight:600;margin-bottom:8px;color:${color};">鰭片方向對齊度 = ${(q*100).toFixed(0)}%（與風軸夾角 ${r.bestDiff.toFixed(0)}°）</div>
+      ? `<div style="font-weight:600;margin-bottom:8px;color:${color};">鰭片方向對齊度 = ${(q*100).toFixed(0)}%（鰭片面向與風源夾角 ${r.bestDiff.toFixed(0)}°）</div>
          <div style="margin-bottom:8px;padding:8px 10px;background:var(--bg-panel-2);border-radius:6px;font-size:11px;line-height:1.8;">
            <div style="font-weight:600;margin-bottom:4px;">計算公式：</div>
-           <div style="font-family:var(--font-mono);color:var(--signal);">對齊度 = max(0, 1 − 夾角 / 45°) × 100%</div>
+           <div style="font-family:var(--font-mono);color:var(--signal);">對齊度 = max(0, 1 − 夾角 / 90°) × 100%</div>
            <div style="margin-top:6px;color:var(--ink-2);">
-             <b>夾角</b>：在天線扇區 ±45° 旋轉範圍內，能找到的鰭片通道方向與主導風軸之間的最小角度差。<br>
-             <b>45°</b> 為分母：因為扇區約束允許 ±45° 旋轉，且風軸具雙向性（檢查 0° 和 180° 兩端），所以數學上最大偏差就是 45°。<br>
-             <b>100%</b> = 夾角 0°，鰭片完全平行風向，氣流直穿鰭片通道。<br>
-             <b>0%</b> = 夾角 45°，已用盡所有旋轉餘裕仍無法改善，風以 45° 斜角進入鰭片通道，強制對流效率大幅下降。
+             <b>夾角</b>：鰭片面向 (機體方位 +180°) 與主導風來向之間的角度差。<br>
+             ${r.isFR1
+               ? '<b>FR1 模式</b>：機體可自由旋轉 360°，工具自動找到最佳迎風方位，對齊度通常接近 100%。'
+               : '<b>FR2 模式</b>：方位由 RF 規劃固定，無法旋轉。此數值為該固定方位的散熱條件診斷。'}<br>
+             <b>90°</b> 為分母：鰭片面向與風源夾角 0° = 完全迎風（最佳），90° = 側風（最差可用工況）。<br>
+             <b>100%</b> = 夾角 0°，鰭片正面迎風，強制對流效率最高。<br>
+             <b>0%</b> = 夾角 ≥ 90°，鰭片處於側風或背風面，幾乎無法利用主導風散熱。
            </div>
          </div>
          <div style="margin-bottom:6px;">評級標準：</div>
          <div style="padding-left:8px;">
-           <span style="color:var(--success);">■</span> <b>佳 GOOD</b>：對齊度 &gt; 70%（夾角 &lt; 13.5°）<br>
-           <span style="color:var(--warn);">■</span> <b>普通 MODERATE</b>：對齊度 40–70%（夾角 13.5–27°）<br>
-           <span style="color:var(--error);">■</span> <b>差 POOR</b>：對齊度 &lt; 40%（夾角 &gt; 27°）
+           <span style="color:var(--success);">■</span> <b>佳 GOOD</b>：對齊度 &gt; 70%（夾角 &lt; 27°）<br>
+           <span style="color:var(--warn);">■</span> <b>普通 MODERATE</b>：對齊度 40–70%（夾角 27–54°）<br>
+           <span style="color:var(--error);">■</span> <b>差 POOR</b>：對齊度 &lt; 40%（夾角 &gt; 54°）
          </div>
          <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--rule);color:var(--ink-2);">
-           ⚠ 這不是「散熱差」，而是「在天線扇區約束下，鰭片無法與主風向良好對齊」。<br>
+           ${r.isFR1
+             ? '⚠ FR1 自由旋轉模式下，若對齊度仍低，代表風速或風向頻率本身不理想，建議以自然對流為基準設計。'
+             : '⚠ FR2 方位由 RF 鎖定，對齊度反映的是「該固定方位是否有利於風冷」。POOR 時建議加裝導流罩、提高架設高度、或使用更高效散熱方案補償。'}<br>
            POOR 情況下建議純以自然對流為散熱設計基準，風為額外 bonus。
          </div>`
-      : `<div style="font-weight:600;margin-bottom:8px;color:${color};">Fin-to-wind alignment = ${(q*100).toFixed(0)}% (angle ${r.bestDiff.toFixed(0)}° off wind axis)</div>
+      : `<div style="font-weight:600;margin-bottom:8px;color:${color};">Fin-to-wind alignment = ${(q*100).toFixed(0)}% (fin face ${r.bestDiff.toFixed(0)}° off wind origin)</div>
          <div style="margin-bottom:8px;padding:8px 10px;background:var(--bg-panel-2);border-radius:6px;font-size:11px;line-height:1.8;">
            <div style="font-weight:600;margin-bottom:4px;">Formula:</div>
-           <div style="font-family:var(--font-mono);color:var(--signal);">Alignment = max(0, 1 − angle / 45°) × 100%</div>
+           <div style="font-family:var(--font-mono);color:var(--signal);">Alignment = max(0, 1 − angle / 90°) × 100%</div>
            <div style="margin-top:6px;color:var(--ink-2);">
-             <b>Angle</b>: minimum angular difference between fin channel direction and prevailing wind axis, within the sector ±45° rotation range.<br>
-             <b>45°</b> denominator: sector constraint allows ±45° rotation, and the wind axis is bidirectional (both 0° and 180° ends checked), so 45° is the mathematical worst case.<br>
-             <b>100%</b> = 0° off, fins perfectly parallel to wind, airflow passes straight through fin channels.<br>
-             <b>0%</b> = 45° off, all rotation freedom exhausted, wind enters fins at 45° angle, forced convection efficiency significantly reduced.
+             <b>Angle</b>: angular difference between fin face direction (unit azimuth + 180°) and prevailing wind origin.<br>
+             ${r.isFR1
+               ? '<b>FR1 mode</b>: unit body freely rotates 360° — tool finds optimal windward azimuth, alignment is typically ~100%.'
+               : '<b>FR2 mode</b>: orientation is RF-fixed, no rotation possible. This value diagnoses thermal conditions at the fixed azimuth.'}<br>
+             <b>90°</b> denominator: 0° = fins directly face the wind (best), 90° = crosswind (worst usable condition).<br>
+             <b>100%</b> = 0° off, fins directly face the wind, maximum forced convection efficiency.<br>
+             <b>0%</b> = ≥ 90° off, fins are in crosswind or leeward — almost no forced convection benefit from prevailing wind.
            </div>
          </div>
          <div style="margin-bottom:6px;">Grading:</div>
          <div style="padding-left:8px;">
-           <span style="color:var(--success);">■</span> <b>GOOD</b>: &gt; 70% (&lt; 13.5° off)<br>
-           <span style="color:var(--warn);">■</span> <b>MODERATE</b>: 40–70% (13.5–27° off)<br>
-           <span style="color:var(--error);">■</span> <b>POOR</b>: &lt; 40% (&gt; 27° off)
+           <span style="color:var(--success);">■</span> <b>GOOD</b>: &gt; 70% (&lt; 27° off)<br>
+           <span style="color:var(--warn);">■</span> <b>MODERATE</b>: 40–70% (27–54° off)<br>
+           <span style="color:var(--error);">■</span> <b>POOR</b>: &lt; 40% (&gt; 54° off)
          </div>
          <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--rule);color:var(--ink-2);">
-           ⚠ "POOR" means fin direction vs wind is suboptimal under sector constraint — NOT that the cooling design is bad.<br>
+           ${r.isFR1
+             ? '⚠ In FR1 free-rotation mode, low alignment suggests wind speed or directional frequency is inherently poor — design for natural convection as baseline.'
+             : '⚠ FR2 orientation is RF-locked. This score diagnoses how favourable the fixed azimuth is for wind cooling. If POOR, consider wind deflectors, raising height, or higher-performance TIM/cooling.'}<br>
            In POOR cases, design for natural convection only; treat wind as bonus.
          </div>`;
     pop.innerHTML = tooltipContent;
@@ -3614,7 +3624,7 @@ async function exportPDF() {
     pdf.setFontSize(10);
     pdf.text(`Prevailing wind (hot season): ${r.prevailingLabel} (${r.prevailingDeg.toFixed(0)}°, ${(r.prevailingFreq * 100).toFixed(0)}% freq)`, 15, y); y += 5;
     pdf.text(`Recommended fin axis: ${r.finAxisDeg.toFixed(0)}°`, 15, y); y += 5;
-    pdf.text(`Recommended unit azimuth: ${r.recommendedAz.toFixed(0)}°${r.isFR1 ? ' (FR1 free rotation)' : ` (${r.rotationOffset >= 0 ? '+' : ''}${r.rotationOffset}° from sector)`}`, 15, y); y += 5;
+    pdf.text(`Recommended unit azimuth: ${r.recommendedAz.toFixed(0)}°${r.isFR1 ? ' (FR1 free rotation)' : ' (FR2 RF-fixed, diagnostic only)'}`, 15, y); y += 5;
     pdf.text(`Convection mode: ${r.convMode === 'mixed' ? 'Mixed (natural + forced)' : 'Natural only'}`, 15, y); y += 5;
     pdf.text(`Alignment quality: ${(r.alignmentQuality * 100).toFixed(0)}% (min angle to wind axis: ${r.bestDiff.toFixed(0)}°)`, 15, y); y += 10;
 
