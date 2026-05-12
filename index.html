@@ -1405,7 +1405,8 @@ footer.app-foot div + div { margin-top: 8px; color: var(--ink-2); }
           <p class="field-help" data-i18n="chart.temp.help">基於近 5 年（約 43,800 筆）的逐時氣溫資料所建立的溫度分佈；Y 軸已標準化為「平均每年的小時數」（= 5 年總和 ÷ 5）。紅色虛線為傳統散熱設計常用的 55 °C 假設，可直接比對本站點實際分佈與設計包絡的差距。</p>
         </div>
         <div>
-          <div class="field-label" style="margin-bottom:10px;" data-i18n="chart.wind">WIND ROSE · 10 m HEIGHT</div>
+          <div class="field-label" style="margin-bottom:4px;" data-i18n="chart.wind">WIND ROSE · 10 m HEIGHT</div>
+          <p class="field-help" id="windrose-sample-note" style="margin:0 0 8px 0;font-size:11px;color:var(--ink-3);"></p>
           <div class="windrose-wrap">
             <svg class="windrose-svg" id="windrose-svg" viewBox="0 0 360 360"></svg>
             <div class="windrose-legend" id="windrose-legend"></div>
@@ -2767,7 +2768,21 @@ function renderWindRose(a) {
   svg.innerHTML = '';
   const legend = $('#windrose-legend');
   legend.innerHTML = '';
+  const sampleNote = $('#windrose-sample-note');
+  if (sampleNote) sampleNote.textContent = '';
   if (!a) return;
+  // Show sampling scope note
+  if (sampleNote) {
+    const zh = state.lang === 'zh';
+    const MONTH_ZH = ['1','2','3','4','5','6','7','8','9','10','11','12'];
+    const MONTH_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const ml = zh
+      ? a.hotMonths.map(m => MONTH_ZH[m]).join('·') + ' 月'
+      : a.hotMonths.map(m => MONTH_EN[m]).join(' · ');
+    sampleNote.textContent = zh
+      ? `取樣範圍：熱季（${ml}）日間 10:00–18:00 · 僅用於風向分析與鰭片方向最佳化`
+      : `Sample: hot season (${ml}) daytime 10:00–18:00 · used for wind direction & fin orientation only`;
+  }
 
   const cx = 180, cy = 180;
   const rMax = 130;
