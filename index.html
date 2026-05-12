@@ -2424,51 +2424,54 @@ function computeRecommendations(rose, sectorAz) {
   const finAxis = windFlowDeg; // fins should be parallel to this axis
 
   // Sector constraint: machine can rotate ±45° from sectorAz
-  // We want to minimize the angle between fin channel and wind axis,
-  // AND prefer windward (fins facing into wind) when alignment is tied.
-  // Wind axis is bidirectional (a line, not vector), so check both directions.
+  // PRIMARY metric: minimize angle between FIN FACE and WIND ORIGIN (fins should face the wind).
+  //   Fins face (az+180)%360; wind comes FROM prevailingDeg.
+  //   Smaller angle = fins more windward = better forced convection on fin surface.
+  // SECONDARY tiebreaker: fin channel alignment with wind axis (for flow-through cooling).
   function angleDiff(a, b) {
     let d = ((a - b + 540) % 360) - 180;
     return Math.abs(d);
   }
-  // Helper: compute how "windward" the fins are for a given unit azimuth.
-  // Fins face (az+180)%360. If fins face toward wind origin → windward (small angle = better).
   function finWindwardAngle(az) {
     const finFace = (az + 180) % 360;
-    return Math.abs(((finFace - prevailingDeg + 540) % 360) - 180);
+    return angleDiff(finFace, prevailingDeg);
+  }
+  // Fin channel alignment: how well do fin channels align with the wind axis (bidirectional)
+  function finChannelAlignment(az) {
+    const d1 = angleDiff(az, windFlowDeg);
+    const d2 = angleDiff(az, (windFlowDeg + 180) % 360);
+    return Math.min(d1, d2);
   }
   const isFR1 = state.params.bandMode === 'FR1';
-  let bestOffset = 0, bestDiff = Infinity, bestWindward = Infinity;
+  let bestOffset = 0, bestWindward = Infinity, bestChannel = Infinity;
 
   if (isFR1) {
     // FR1: external antenna — unit body can freely rotate 360°, no sector constraint
     let bestAz = 0;
     for (let az = 0; az < 360; az += 1) {
-      const d1 = angleDiff(az, windFlowDeg);
-      const d2 = angleDiff(az, (windFlowDeg + 180) % 360);
-      const d = Math.min(d1, d2);
       const ww = finWindwardAngle(az);
-      if (d < bestDiff || (d === bestDiff && ww < bestWindward)) {
-        bestDiff = d; bestAz = az; bestWindward = ww;
+      const ch = finChannelAlignment(az);
+      if (ww < bestWindward || (ww === bestWindward && ch < bestChannel)) {
+        bestWindward = ww; bestChannel = ch; bestAz = az;
       }
     }
-    bestOffset = 0; // no sector reference in FR1
+    bestOffset = 0;
     var recommendedAz = bestAz;
   } else {
     // FR2: integrated antenna — constrained ±45° from sectorAz
     for (let off = -45; off <= 45; off += 1) {
       const a = (sectorAz + off + 360) % 360;
-      const d1 = angleDiff(a, windFlowDeg);
-      const d2 = angleDiff(a, (windFlowDeg + 180) % 360);
-      const d = Math.min(d1, d2);
       const ww = finWindwardAngle(a);
-      if (d < bestDiff || (d === bestDiff && ww < bestWindward)) {
-        bestDiff = d; bestOffset = off; bestWindward = ww;
+      const ch = finChannelAlignment(a);
+      if (ww < bestWindward || (ww === bestWindward && ch < bestChannel)) {
+        bestWindward = ww; bestChannel = ch; bestOffset = off;
       }
     }
     var recommendedAz = (sectorAz + bestOffset + 360) % 360;
   }
-  const alignmentQuality = Math.max(0, 1 - bestDiff / 45);
+  const bestDiff = bestWindward;
+  // Quality: 0°=100% (fins face wind), 90°=0% (fins perpendicular), >90°=0% (leeward)
+  const alignmentQuality = Math.max(0, 1 - bestDiff / 90);
 
   // Reliability of forced convection assistance
   let convMode, modeNote;
