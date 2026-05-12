@@ -3359,7 +3359,18 @@ function renderFieldCard(a) {
   $('#qr-container').style.display = 'flex';
   const qrText = `RRU SITE\n${state.location.name}\nLat: ${state.location.lat.toFixed(4)}\nLon: ${state.location.lon.toFixed(4)}\nBand: ${r.isFR1 ? 'FR1' : 'FR2'}\nFace: ${r.recommendedAz.toFixed(0)}°\nFin axis: ${r.finAxisDeg.toFixed(0)}°\nMode: ${r.convMode}\nP95: ${a.tStats.p95.toFixed(1)}°C`;
   $('#qrcode').innerHTML = '';
-  new QRCode($('#qrcode'), { text: qrText, width: 160, height: 160, colorDark: '#0a0e14', colorLight: '#ffffff' });
+  try {
+    new QRCode($('#qrcode'), { text: qrText, width: 160, height: 160, colorDark: '#0a0e14', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.L });
+  } catch (_) {
+    // If still too long (very long location name), truncate name and retry
+    try {
+      const shortName = state.location.name.length > 20 ? state.location.name.slice(0, 20) + '…' : state.location.name;
+      const qrShort = `RRU\n${shortName}\n${state.location.lat.toFixed(4)},${state.location.lon.toFixed(4)}\n${r.isFR1 ? 'FR1' : 'FR2'} ${r.recommendedAz.toFixed(0)}°\n${r.convMode}`;
+      new QRCode($('#qrcode'), { text: qrShort, width: 160, height: 160, colorDark: '#0a0e14', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.L });
+    } catch (_2) {
+      $('#qrcode').innerHTML = '<span style="font-size:11px;color:var(--ink-3);">QR: text too long</span>';
+    }
+  }
 }
 
 /* =============================================================
