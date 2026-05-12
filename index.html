@@ -1558,7 +1558,7 @@ footer.app-foot div + div { margin-top: 8px; color: var(--ink-2); }
             <tr><td>郊區</td><td>α = 0.22</td></tr>
             <tr><td>密集都市</td><td>α = 0.33</td></tr>
           </table>
-          <p><strong>主導風向判定：</strong>自動從 5 年逐時資料中找出月均溫最高的 3 個月作為「最熱季」，取該時段全部逐時風資料，把 360° 切成 16 個方位（每格 22.5°），計算頻率分佈後取頻率最高者為主風向。自動偵測最熱月份可適應不同緯度與氣候區，無需假設固定月份。之所以只取熱季，是因為這段時間才是散熱最緊迫的時段。</p>
+          <p><strong>主導風向判定：</strong>自動從 5 年逐時資料中找出月均溫最高的 3 個月作為「最熱季」，再取日間 10:00–18:00 的逐時風資料，把 360° 切成 16 個方位（每格 22.5°），計算頻率分佈後取頻率最高者為主風向。自動偵測最熱月份可適應不同緯度與氣候區，無需假設固定月份。之所以只取熱季日間，是因為白天有太陽輻射加熱、氣溫最高，是散熱最緊迫的時段；夜間風向模式可能因海陸風或山谷風反轉，不應用於鰭片方向最佳化。</p>
           <p><strong>鰭片方向建議規則：</strong>鰭片走向設定為平行於主導風向，讓氣流可順暢通過鰭片通道並形成強制對流。若主導風向頻率低於 30%（代表風向太分散），系統會降級為「以自然對流為主」並標示警告，不建議依賴風向帶來的散熱增益。</p>
           <p><strong>扇區約束：</strong>天線扇區指向通常由訊號涵蓋需求決定、不能任意轉動，所以實際上機體面向只能在天線扇區方向 ±45° 的範圍內微調。系統會在這個約束下，找出最接近主風向的合法方向。</p>
           <p><strong>使用限制與注意事項：</strong>本工具定位為 <em>佈建前的初步環境評估</em>，不是 CFD 模擬的替代品。最終散熱規格仍需以 FloTHERM、Icepak 等 CFD 軟體驗證關鍵 worst-case。Open-Meteo 屬再分析資料，實際微氣候會因附近建物、植被遮蔽、海陸風、都市熱島等效應而與資料有差異；山區、都市峽谷、近海岸等複雜地形建議搭配在地氣象站實測資料交叉驗證。</p>
@@ -1572,7 +1572,7 @@ footer.app-foot div + div { margin-top: 8px; color: var(--ink-2); }
             <tr><td>Suburban</td><td>α = 0.22</td></tr>
             <tr><td>Urban dense</td><td>α = 0.33</td></tr>
           </table>
-          <p><strong>Prevailing wind detection:</strong> Automatically identifies the 3 months with the highest mean temperature from 5 years of hourly data as the "hot season" — no fixed month assumption, adapts to any latitude and climate zone. Uses all hourly wind data from these months. Directions are binned into 16 sectors (22.5° each); the highest-frequency bin is selected as the prevailing direction. Restricting to the hot season isolates the period where cooling is most critical.</p>
+          <p><strong>Prevailing wind detection:</strong> Automatically identifies the 3 months with the highest mean temperature from 5 years of hourly data as the "hot season" — no fixed month assumption, adapts to any latitude and climate zone. Uses daytime (10:00–18:00) hourly wind data from these months. Directions are binned into 16 sectors (22.5° each); the highest-frequency bin is selected as the prevailing direction. Restricting to hot-season daytime isolates the window where cooling is most critical — solar heating peaks during these hours and nighttime wind patterns (sea-land breeze, mountain-valley reversal) should not influence fin orientation.</p>
           <p><strong>Fin orientation rule:</strong> Fins are aligned parallel to the prevailing wind so airflow passes cleanly through the fin channels (forced convection). If the prevailing direction frequency is below 30% (wind too scattered), the rule degrades to "natural convection dominant" and a warning is shown — forced-convection gains cannot be reliably exploited.</p>
           <p><strong>Sector constraint:</strong> Antenna sector orientation is dictated by signal coverage and cannot be freely rotated, so the physical unit can only be turned within ±45° of the antenna bearing. The system finds the best allowed orientation within that window.</p>
           <p><strong>Caveats:</strong> This tool is a <em>pre-deployment site assessment</em>, not a CFD replacement. Final thermal design must still be validated with FloTHERM / Icepak against worst-case scenarios. Open-Meteo is reanalysis data; real microclimates can diverge due to buildings, vegetation, sea-land breeze, urban heat island, etc. For complex terrain (mountains, urban canyons, coastal sites), cross-validate with local weather station data.</p>
@@ -2302,14 +2302,24 @@ function runAnalysis() {
 
   // Hot-period analysis (cooling-critical wind direction)
   const hotMonths = filterHotPeriod(c);
-  const hotIdx = [];
+  const hotIdx = [];       // all hot-season hours (for temp / sol-air stats)
+  const hotDayIdx = [];    // hot-season daytime 10:00–18:00 only (for wind rose)
   times.forEach((iso, i) => {
     const m = parseInt(iso.slice(5, 7), 10) - 1;
-    if (hotMonths.includes(m)) hotIdx.push(i);
+    if (!hotMonths.includes(m)) return;
+    hotIdx.push(i);
+    const hr = parseInt(iso.slice(11, 13), 10);  // "2024-07-15T14:00" → 14
+    if (hr >= 10 && hr <= 18) hotDayIdx.push(i);
   });
-  const hotWind = hotIdx.map(i => wind[i]);
-  const hotDir = hotIdx.map(i => dir[i]);
-  const hotRose = windRoseData(hotWind, hotDir);
+  // Wind rose for fin orientation uses DAYTIME-ONLY data: solar heating + peak T occur
+  // during 10:00–18:00, so daytime wind direction is what matters for fin alignment.
+  const hotDayWind = hotDayIdx.map(i => wind[i]);
+  const hotDayDir = hotDayIdx.map(i => dir[i]);
+  const hotRose = windRoseData(hotDayWind, hotDayDir);
+  // Full hot-season wind stats (all hours) for mean speed / vh_hot reporting
+  const hotAllWind = hotIdx.map(i => wind[i]);
+  const hotAllDir = hotIdx.map(i => dir[i]);
+  const hotRoseAll = windRoseData(hotAllWind, hotAllDir);
 
   const hotTemps = hotIdx.map(i => temps[i]).filter(x => x != null);
   const hotTempStats = temperatureStats(hotTemps);
@@ -2368,9 +2378,10 @@ function runAnalysis() {
   const v10mean = rose.meanSpeed;
   const v10p95 = percentile([...wind].filter(x => x != null && !isNaN(x)).sort((a, b) => a - b), 0.50); // median, more conservative for design
   const vh = powerLawWind(v10mean, state.params.height, state.params.alpha, state.params.shielding);
-  const vh_hot = powerLawWind(hotRose.meanSpeed, state.params.height, state.params.alpha, state.params.shielding);
+  // vh_hot uses all hot-season hours (not just daytime) for mean wind reporting
+  const vh_hot = powerLawWind(hotRoseAll.meanSpeed, state.params.height, state.params.alpha, state.params.shielding);
 
-  // Recommendations
+  // Recommendations use daytime-only hotRose for direction optimisation
   const rec = computeRecommendations(hotRose, state.params.sector);
 
   return {
@@ -2381,7 +2392,8 @@ function runAnalysis() {
     hotSolAirStats,
     highTempWind,
     rose,
-    hotRose,
+    hotRose,       // daytime-only: for wind rose chart & fin direction
+    hotRoseAll,    // all hours: for mean speed stats
     hotMonths,
     peakSolar,
     meanDailyMaxSolar,
@@ -2546,8 +2558,8 @@ function renderSummaryCards(a) {
   const hotMonthLabel = zh
     ? a.hotMonths.map(m => MONTH_ZH[m]).join('·') + ' 月'
     : a.hotMonths.map(m => MONTH_EN[m]).join(' · ');
-  // Hot-season V10 (before Power Law)
-  const hotV10 = a.hotRose.meanSpeed;
+  // Hot-season V10 (all hours, before Power Law)
+  const hotV10 = a.hotRoseAll.meanSpeed;
   row2.innerHTML =
     statCard('stat-accent', zh ? '熱季 Sol-air P95 ★' : 'Hot-season Sol-air P95 ★',
       `${fmt(hsa.p95)}<span class="unit">°C</span>`,
