@@ -1558,7 +1558,7 @@ footer.app-foot div + div { margin-top: 8px; color: var(--ink-2); }
             <tr><td>郊區</td><td>α = 0.22</td></tr>
             <tr><td>密集都市</td><td>α = 0.33</td></tr>
           </table>
-          <p><strong>主導風向判定：</strong>自動從 5 年逐時資料中找出月均溫最高的 3 個月作為「最熱季」，再取日間 10:00–18:00 的逐時風資料，把 360° 切成 16 個方位（每格 22.5°），計算頻率分佈後取頻率最高者為主風向。自動偵測最熱月份可適應不同緯度與氣候區，無需假設固定月份。之所以只取熱季日間，是因為這段時間才是散熱最緊迫的時段。</p>
+          <p><strong>主導風向判定：</strong>自動從 5 年逐時資料中找出月均溫最高的 3 個月作為「最熱季」，取該時段全部逐時風資料，把 360° 切成 16 個方位（每格 22.5°），計算頻率分佈後取頻率最高者為主風向。自動偵測最熱月份可適應不同緯度與氣候區，無需假設固定月份。之所以只取熱季，是因為這段時間才是散熱最緊迫的時段。</p>
           <p><strong>鰭片方向建議規則：</strong>鰭片走向設定為平行於主導風向，讓氣流可順暢通過鰭片通道並形成強制對流。若主導風向頻率低於 30%（代表風向太分散），系統會降級為「以自然對流為主」並標示警告，不建議依賴風向帶來的散熱增益。</p>
           <p><strong>扇區約束：</strong>天線扇區指向通常由訊號涵蓋需求決定、不能任意轉動，所以實際上機體面向只能在天線扇區方向 ±45° 的範圍內微調。系統會在這個約束下，找出最接近主風向的合法方向。</p>
           <p><strong>使用限制與注意事項：</strong>本工具定位為 <em>佈建前的初步環境評估</em>，不是 CFD 模擬的替代品。最終散熱規格仍需以 FloTHERM、Icepak 等 CFD 軟體驗證關鍵 worst-case。Open-Meteo 屬再分析資料，實際微氣候會因附近建物、植被遮蔽、海陸風、都市熱島等效應而與資料有差異；山區、都市峽谷、近海岸等複雜地形建議搭配在地氣象站實測資料交叉驗證。</p>
@@ -1572,7 +1572,7 @@ footer.app-foot div + div { margin-top: 8px; color: var(--ink-2); }
             <tr><td>Suburban</td><td>α = 0.22</td></tr>
             <tr><td>Urban dense</td><td>α = 0.33</td></tr>
           </table>
-          <p><strong>Prevailing wind detection:</strong> Automatically identifies the 3 months with the highest mean temperature from 5 years of hourly data as the "hot season" — no fixed month assumption, adapts to any latitude and climate zone. Uses daytime (10:00–18:00) hourly wind data from these months. Directions are binned into 16 sectors (22.5° each); the highest-frequency bin is selected as the prevailing direction. Restricting to hot-season daytime isolates the window where cooling is most critical.</p>
+          <p><strong>Prevailing wind detection:</strong> Automatically identifies the 3 months with the highest mean temperature from 5 years of hourly data as the "hot season" — no fixed month assumption, adapts to any latitude and climate zone. Uses all hourly wind data from these months. Directions are binned into 16 sectors (22.5° each); the highest-frequency bin is selected as the prevailing direction. Restricting to the hot season isolates the period where cooling is most critical.</p>
           <p><strong>Fin orientation rule:</strong> Fins are aligned parallel to the prevailing wind so airflow passes cleanly through the fin channels (forced convection). If the prevailing direction frequency is below 30% (wind too scattered), the rule degrades to "natural convection dominant" and a warning is shown — forced-convection gains cannot be reliably exploited.</p>
           <p><strong>Sector constraint:</strong> Antenna sector orientation is dictated by signal coverage and cannot be freely rotated, so the physical unit can only be turned within ±45° of the antenna bearing. The system finds the best allowed orientation within that window.</p>
           <p><strong>Caveats:</strong> This tool is a <em>pre-deployment site assessment</em>, not a CFD replacement. Final thermal design must still be validated with FloTHERM / Icepak against worst-case scenarios. Open-Meteo is reanalysis data; real microclimates can diverge due to buildings, vegetation, sea-land breeze, urban heat island, etc. For complex terrain (mountains, urban canyons, coastal sites), cross-validate with local weather station data.</p>
@@ -1856,6 +1856,40 @@ function hideLoading() { $('#loading-overlay').classList.remove('show'); }
 /* =============================================================
    API: Open-Meteo Geocoding & Historical Weather
    ============================================================= */
+
+/**
+ * fetch with AbortController timeout + one automatic retry.
+ * @param {string} url
+ * @param {RequestInit} [opts]
+ * @param {number} [timeoutMs=12000] — per-attempt timeout
+ * @param {number} [retries=1]       — retry budget (only on network error / 429 / 5xx)
+ */
+async function fetchSafe(url, opts = {}, timeoutMs = 12000, retries = 1) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...opts, signal: ctrl.signal });
+      clearTimeout(timer);
+      if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429)) return res;
+      // 429 / 5xx → retry
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, 1500 * (attempt + 1))); // simple backoff
+        continue;
+      }
+      return res; // exhausted retries, return last response
+    } catch (err) {
+      clearTimeout(timer);
+      if (attempt < retries && (err.name === 'AbortError' || err.name === 'TypeError')) {
+        await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+        continue;
+      }
+      if (err.name === 'AbortError') throw new Error('Request timed out — please check your network and try again.');
+      throw err;
+    }
+  }
+}
+
 async function geocodeAddress(query) {
   // Allow direct lat,lon entry
   const m = query.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,，]\s*(-?\d+(?:\.\d+)?)\s*$/);
@@ -1910,7 +1944,7 @@ async function geocodeAddress(query) {
       'accept-language': state.lang === 'zh' ? 'zh-TW,zh,en' : 'en'
     });
     if (cc) params.set('countrycodes', cc);
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+    const res = await fetchSafe(`https://nominatim.openstreetmap.org/search?${params}`, {
       headers: { 'Accept': 'application/json' }
     });
     if (!res.ok) return null;
@@ -1969,7 +2003,7 @@ async function geocodeAddress(query) {
   // FALLBACK: Open-Meteo geocoding — city/place-level gazetteer, no street addresses.
   try {
     const omUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=${state.lang}&format=json`;
-    const res = await fetch(omUrl);
+    const res = await fetchSafe(omUrl);
     if (res.ok) {
       const j = await res.json();
       if (j.results && j.results.length > 0) {
@@ -2020,7 +2054,7 @@ async function fetchHistoricalClimate(lat, lon) {
               `&hourly=temperature_2m,wind_speed_10m,wind_direction_10m,shortwave_radiation` +
               `&timezone=auto&wind_speed_unit=ms`;
 
-  const res = await fetch(url);
+  const res = await fetchSafe(url, {}, 15000);  // climate data can be large → 15s timeout
   if (!res.ok) throw new Error('Climate API failed: HTTP ' + res.status);
   const j = await res.json();
   if (!j.hourly) throw new Error('Climate API returned no hourly data');
@@ -2056,7 +2090,7 @@ async function fetchBuildingDensity(lat, lon, radius = 200) {
   const query = `[out:json][timeout:15];way["building"](around:${radius},${lat},${lon});out ids geom;`;
   const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
   try {
-    const res = await fetch(url);
+    const res = await fetchSafe(url, {}, 18000);  // Overpass can be slow
     if (!res.ok) throw new Error('Overpass API error');
     const data = await res.json();
     const buildings = data.elements || [];
