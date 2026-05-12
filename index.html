@@ -1267,7 +1267,7 @@ footer.app-foot div + div { margin-top: 8px; color: var(--ink-2); }
       </div>
 
       <label data-i18n="loc.address">地址 / 地名 / 座標</label>
-      <input type="text" id="address-input" placeholder="台北 101 / 25.04, 121.56" />
+      <input type="text" id="address-input" placeholder="地址 / 座標 / Google Maps 連結" />
 
       <div style="display:flex; gap:6px; margin-top:8px;">
         <button class="btn btn-primary btn-sm" id="search-btn" style="flex:1;">
@@ -1861,6 +1861,40 @@ async function geocodeAddress(query) {
   const m = query.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,，]\s*(-?\d+(?:\.\d+)?)\s*$/);
   if (m) {
     return { lat: parseFloat(m[1]), lon: parseFloat(m[2]), name: `${m[1]}, ${m[2]}` };
+  }
+
+  // Parse Google Maps URL → extract coordinates
+  // Supports formats:
+  //   https://www.google.com/maps/@25.033,121.564,17z
+  //   https://www.google.com/maps/place/.../@25.033,121.564,17z/...
+  //   https://maps.google.com/?q=25.033,121.564
+  //   https://www.google.com/maps?q=25.033,121.564
+  //   https://www.google.com.tw/maps/...
+  if (/google\.\w+\/maps|maps\.google\.\w+/.test(query)) {
+    // Try @lat,lon pattern first (most common)
+    const gm1 = query.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (gm1) {
+      const lat = parseFloat(gm1[1]), lon = parseFloat(gm1[2]);
+      if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+        return { lat, lon, name: `${lat.toFixed(5)}, ${lon.toFixed(5)}`, source: 'Google Maps URL' };
+      }
+    }
+    // Try ?q=lat,lon or &q=lat,lon
+    const gm2 = query.match(/[?&]q=(-?\d+\.\d+)[,，](-?\d+\.\d+)/);
+    if (gm2) {
+      const lat = parseFloat(gm2[1]), lon = parseFloat(gm2[2]);
+      if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+        return { lat, lon, name: `${lat.toFixed(5)}, ${lon.toFixed(5)}`, source: 'Google Maps URL' };
+      }
+    }
+    // Try !3d lat !4d lon (embed/short URL expanded format)
+    const gm3 = query.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+    if (gm3) {
+      const lat = parseFloat(gm3[1]), lon = parseFloat(gm3[2]);
+      if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+        return { lat, lon, name: `${lat.toFixed(5)}, ${lon.toFixed(5)}`, source: 'Google Maps URL' };
+      }
+    }
   }
 
   // PRIMARY: Nominatim (OpenStreetMap) — handles full street addresses worldwide.
@@ -3612,6 +3646,9 @@ function applyI18n() {
     if (I18N[state.lang][key]) el.textContent = I18N[state.lang][key];
   });
   document.documentElement.lang = state.lang === 'zh' ? 'zh-TW' : 'en';
+  // Update address input placeholder
+  const ai = $('#address-input');
+  if (ai) ai.placeholder = state.lang === 'zh' ? '地址 / 座標 / Google Maps 連結' : 'Address / coords / Google Maps link';
 }
 
 function setRole(role) {
