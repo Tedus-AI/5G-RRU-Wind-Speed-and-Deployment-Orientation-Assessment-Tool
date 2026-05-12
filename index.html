@@ -3185,8 +3185,8 @@ function renderRecList(a) {
       <div class="rec-body">
         <div class="rec-label">${state.lang === 'zh' ? '熱環境包絡 (Sol-air + 高溫風速)' : 'Thermal Envelope (Sol-air + High-temp Wind)'}</div>
         <div class="rec-value">${state.lang === 'zh'
-          ? `Sol-air P95 = ${fmt(a.solAirStats.p95)}°C · 高溫 P10 風速 = ${fmt(a.highTempWind.p10)} m/s`
-          : `Sol-air P95 = ${fmt(a.solAirStats.p95)}°C · High-temp P10 wind = ${fmt(a.highTempWind.p10)} m/s`}</div>
+          ? `熱季 Sol-air P95 = ${fmt(a.hotSolAirStats.p95)}°C · 高溫 P10 風速 = ${fmt(a.highTempWind.p10)} m/s`
+          : `Hot-season Sol-air P95 = ${fmt(a.hotSolAirStats.p95)}°C · High-temp P10 wind = ${fmt(a.highTempWind.p10)} m/s`}</div>
         <div class="rec-note">${(() => {
           const htw = a.highTempWind;
           const sa = a.solAirStats;
@@ -3194,13 +3194,13 @@ function renderRecList(a) {
           const htwP10h = powerLawWind(htw.p10, state.params.height, state.params.alpha, state.params.shielding);
           if (state.lang === 'zh') {
             return `<b>Sol-air temperature</b>：考慮太陽輻射對機殼加熱後的等效環境溫度（α<sub>s</sub> = ${state.params.absorptance}）。<br>` +
-              `全年 P95 = ${fmt(sa.p95)}°C（比氣溫 P95 高 ${(sa.p95 - a.tStats.p95).toFixed(1)}°C）；熱季 P95 = ${fmt(hsa.p95)}°C。<br>` +
+              `熱季 P95 = ${fmt(hsa.p95)}°C（散熱設計參考值）；全年 P95 = ${fmt(sa.p95)}°C（比氣溫 P95 高 ${(sa.p95 - a.tStats.p95).toFixed(1)}°C）。<br>` +
               `<b>高溫時段風速</b>：篩選氣溫 ≥ P90（${fmt(a.tStats.p90)}°C）的 ${htw.count.toLocaleString()} 個小時：<br>` +
               `P10 = ${fmt(htw.p10)} m/s（@${state.params.height}m: ${fmt(htwP10h)} m/s）、中位數 = ${fmt(htw.median)} m/s、靜風率 = ${(htw.calmFrac*100).toFixed(0)}%。<br>` +
               `<span style="font-size:11px;color:var(--text-tertiary);">P10 風速代表「高溫時段中，90% 的時間風速都高於此值」，適合作為保守散熱設計輸入。</span>`;
           } else {
             return `<b>Sol-air temperature</b>: effective ambient including solar heating (α<sub>s</sub> = ${state.params.absorptance}).<br>` +
-              `Annual P95 = ${fmt(sa.p95)}°C (+${(sa.p95 - a.tStats.p95).toFixed(1)}°C vs air P95); hot-season P95 = ${fmt(hsa.p95)}°C.<br>` +
+              `Hot-season P95 = ${fmt(hsa.p95)}°C (design reference); annual P95 = ${fmt(sa.p95)}°C (+${(sa.p95 - a.tStats.p95).toFixed(1)}°C vs air P95).<br>` +
               `<b>High-temp concurrent wind</b>: filtered ${htw.count.toLocaleString()} hours with T ≥ P90 (${fmt(a.tStats.p90)}°C):<br>` +
               `P10 = ${fmt(htw.p10)} m/s (@${state.params.height}m: ${fmt(htwP10h)} m/s), median = ${fmt(htw.median)} m/s, calm = ${(htw.calmFrac*100).toFixed(0)}%.<br>` +
               `<span style="font-size:11px;color:var(--text-tertiary);">P10 wind = "90% of high-temp hours have wind above this value" — suitable for conservative thermal design input.</span>`;
