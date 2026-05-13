@@ -2869,12 +2869,12 @@ function renderWindRose(a) {
   const ax = cx + (rMax + 4) * Math.cos(pAng), ay = cy + (rMax + 4) * Math.sin(pAng);
   const ax2 = cx + 34 * Math.cos(pAng), ay2 = cy + 34 * Math.sin(pAng);  // stop outside calm circle (r=26 + 8px gap)
   arrow.setAttribute('d', `M ${ax} ${ay} L ${ax2} ${ay2}`);
-  arrow.setAttribute('stroke', '#e0e0e0');
+  arrow.setAttribute('stroke', '#00FF88');
   arrow.setAttribute('stroke-width', '2.5');
   arrow.setAttribute('marker-end', 'url(#arrowhead)');
   // arrowhead defs
   const defs = document.createElementNS(NS, 'defs');
-  defs.innerHTML = `<marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#e0e0e0"/></marker>`;
+  defs.innerHTML = `<marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#00FF88"/></marker>`;
   svg.appendChild(defs);
   svg.appendChild(arrow);
 
@@ -2883,7 +2883,7 @@ function renderWindRose(a) {
   calmBg.setAttribute('cx', cx); calmBg.setAttribute('cy', cy);
   calmBg.setAttribute('r', 26);
   calmBg.setAttribute('fill', '#0a0e14');
-  calmBg.setAttribute('stroke', '#e0e0e0');
+  calmBg.setAttribute('stroke', '#00FF88');
   calmBg.setAttribute('stroke-width', '1.5');
   calmBg.setAttribute('stroke-dasharray', '2 3');
   calmBg.setAttribute('opacity', '0.9');
