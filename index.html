@@ -1316,6 +1316,7 @@ footer.app-foot div + div { margin-top: 8px; color: var(--ink-2); }
             <option value="0.33" data-i18n="terrain.urban">市區 / 高樓密集 (α = 0.33)</option>
           </select>
           <p class="field-help" data-i18n="params.terrain.help">影響 Power Law 指數 α 值</p>
+          <div id="terrain-suggest" style="display:none;margin-top:6px;padding:8px 10px;border-radius:4px;background:var(--signal-wash);border:1px solid var(--signal-line);font-size:11px;line-height:1.55;color:var(--ink-2);cursor:pointer;" title="Click to apply"></div>
         </div>
 
         <div>
@@ -2162,6 +2163,85 @@ function suggestShielding(densityResult) {
     el.style.borderColor = 'var(--success)';
     el.style.background = 'rgba(52,211,153,0.08)';
     const applied = state.lang === 'zh' ? '✓ 已套用' : '✓ Applied';
+    el.querySelector('span:last-child').innerHTML = `<span style="color:var(--success);">${applied}</span>`;
+    if (state.climate) runFullAnalysis();
+  };
+}
+
+async function fetchCoastlineProximity(lat, lon, radius = 500) {
+  // Query Overpass for coastline, large water bodies, or ocean within radius
+  const query = `[out:json][timeout:10];(
+    way["natural"="coastline"](around:${radius},${lat},${lon});
+    way["natural"="water"](around:${radius},${lat},${lon});
+    relation["natural"="water"](around:${radius},${lat},${lon});
+  );out ids;`;
+  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+  try {
+    const res = await fetchSafe(url, {}, 12000);
+    if (!res.ok) return false;
+    const data = await res.json();
+    return (data.elements || []).length > 0;
+  } catch (e) {
+    console.warn('Coastline check failed:', e);
+    return false;
+  }
+}
+
+function suggestTerrain(densityResult, nearCoast) {
+  const el = $('#terrain-suggest');
+  if (!densityResult || densityResult.density === undefined) {
+    el.style.display = 'none';
+    return;
+  }
+  const d = densityResult.density;
+  const count = densityResult.count;
+  const pct = (d * 100).toFixed(0);
+  let suggestedVal, suggestedLabelZH, suggestedLabelEN, reasonZH, reasonEN;
+
+  if (count <= 3 && d < 0.03 && nearCoast) {
+    suggestedVal = '0.10';
+    suggestedLabelZH = '海岸 / 開闊海域 (α = 0.10)';
+    suggestedLabelEN = 'Coast / Open sea (α = 0.10)';
+    reasonZH = `覆蓋率 ${pct}% 極低且 500m 內偵測到海岸線或大型水體`;
+    reasonEN = `Coverage ${pct}% very low & coastline/water detected within 500m`;
+  } else if (count <= 5 && d < 0.05) {
+    suggestedVal = '0.14';
+    suggestedLabelZH = '開闊地 / 草原 (α = 0.14)';
+    suggestedLabelEN = 'Open country (α = 0.14)';
+    reasonZH = `覆蓋率 ${pct}% 極低，建築物稀少`;
+    reasonEN = `Coverage ${pct}% very low, sparse buildings`;
+  } else if (d < 0.20) {
+    suggestedVal = '0.22';
+    suggestedLabelZH = '郊區 / 一般住宅區 (α = 0.22)';
+    suggestedLabelEN = 'Suburban (α = 0.22)';
+    reasonZH = `覆蓋率 ${pct}%，建築密度中等`;
+    reasonEN = `Coverage ${pct}%, moderate building density`;
+  } else {
+    suggestedVal = '0.33';
+    suggestedLabelZH = '市區 / 高樓密集 (α = 0.33)';
+    suggestedLabelEN = 'Urban / Dense high-rise (α = 0.33)';
+    reasonZH = `覆蓋率 ${pct}%，建築密集`;
+    reasonEN = `Coverage ${pct}%, dense buildings`;
+  }
+
+  const zh = state.lang === 'zh';
+  el.style.display = 'block';
+  el.innerHTML = zh
+    ? `<span style="color:var(--accent);font-weight:600;">OSM 地形粗糙度分析</span><br>
+       ${reasonZH}${nearCoast ? '　🌊 近海岸' : ''}<br>
+       <span style="margin-top:4px;display:inline-block;padding:2px 8px;background:rgba(79,212,230,0.15);border-radius:4px;color:var(--accent);font-weight:600;">
+       建議：${suggestedLabelZH}</span> <span style="opacity:0.6;">（點擊套用）</span>`
+    : `<span style="color:var(--accent);font-weight:600;">OSM Terrain Roughness</span><br>
+       ${reasonEN}${nearCoast ? '　🌊 Near coast' : ''}<br>
+       <span style="margin-top:4px;display:inline-block;padding:2px 8px;background:rgba(79,212,230,0.15);border-radius:4px;color:var(--accent);font-weight:600;">
+       Suggested: ${suggestedLabelEN}</span> <span style="opacity:0.6;">(click to apply)</span>`;
+
+  el.onclick = () => {
+    $('#param-terrain').value = suggestedVal;
+    state.params.alpha = parseFloat(suggestedVal);
+    el.style.borderColor = 'var(--success)';
+    el.style.background = 'rgba(52,211,153,0.08)';
+    const applied = zh ? '✓ 已套用' : '✓ Applied';
     el.querySelector('span:last-child').innerHTML = `<span style="color:var(--success);">${applied}</span>`;
     if (state.climate) runFullAnalysis();
   };
@@ -3825,16 +3905,18 @@ async function searchAndLoad() {
     saveSearchHistory({ query: q, name: geo.name, lat: geo.lat, lon: geo.lon });
 
     showLoading('Fetching 5-year climate history…');
-    // Fetch climate data and building density in parallel
-    const [climate, buildingDensity] = await Promise.all([
+    // Fetch climate data, building density, and coastline proximity in parallel
+    const [climate, buildingDensity, nearCoast] = await Promise.all([
       fetchHistoricalClimate(geo.lat, geo.lon),
-      fetchBuildingDensity(geo.lat, geo.lon, 200).catch(() => null)
+      fetchBuildingDensity(geo.lat, geo.lon, 200).catch(() => null),
+      fetchCoastlineProximity(geo.lat, geo.lon, 500).catch(() => false)
     ]);
     state.climate = climate;
     toast('Climate data loaded', 'success');
 
-    // Show building density suggestion (non-blocking)
+    // Show building density suggestions (non-blocking)
     suggestShielding(buildingDensity);
+    suggestTerrain(buildingDensity, nearCoast);
 
     runFullAnalysis();
   } catch (e) {
